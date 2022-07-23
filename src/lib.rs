@@ -1,8 +1,6 @@
 #[allow(dead_code)]
-
 mod inflection {
     use hashbrown::{HashMap, HashSet};
-
     use regex::Regex;
 
     macro_rules! substr {
@@ -11,7 +9,6 @@ mod inflection {
         }};
 
         ($str:expr, $start_pos:expr, $end_pos:expr) => {{
-            // TODO: may overflow
             substr!($str, $start_pos, $end_pos - $start_pos, true)
         }};
 
@@ -33,11 +30,33 @@ mod inflection {
                 .collect::<String>()
         }};
     }
-    pub(crate) use substr;
 
-    fn example(a: String, start: usize, end: usize) -> String {
-        substr!(a, start, end).to_string()
+    macro_rules! create_ordinal_function {
+        ($func_name:ident, $abs:expr, $param_type:ty) => {
+            pub fn $func_name(&self, number: $param_type) -> String {
+                let n = $abs(number);
+                match n % 100 {
+                    11 | 12 | 13 => "th".to_string(),
+                    _ => match n % 10 {
+                        1 => "st".to_string(),
+                        2 => "nd".to_string(),
+                        3 => "rd".to_string(),
+                        _ => "th".to_string(),
+                    },
+                }
+            }
+        };
     }
+
+    macro_rules! create_ordinalize_function {
+        ($func_name:ident, $ordinal_function:ident, $param_type:ty) => {
+            pub fn $func_name(&self, number: $param_type) -> String {
+                format!("{}{}", number, self.$ordinal_function(number))
+            }
+        };
+    }
+
+    pub(crate) use substr;
 
     pub struct Inflection {
         plurals: Vec<(String, String)>,
@@ -356,6 +375,30 @@ mod inflection {
             }
         }
 
+        create_ordinal_function!(ordinal_i8, |x: i8| x.abs(), i8);
+        create_ordinal_function!(ordinal_i16, |x: i16| x.abs(), i16);
+        create_ordinal_function!(ordinal_i32, |x: i32| x.abs(), i32);
+        create_ordinal_function!(ordinal_i64, |x: i64| x.abs(), i64);
+        create_ordinal_function!(ordinal_i128, |x: i128| x.abs(), i128);
+        create_ordinal_function!(ordinal_u8, |x: u8| x, u8);
+        create_ordinal_function!(ordinal_u16, |x: u16| x, u16);
+        create_ordinal_function!(ordinal_u32, |x: u32| x, u32);
+        create_ordinal_function!(ordinal_u64, |x: u64| x, u64);
+        create_ordinal_function!(ordinal_u128, |x: u128| x, u128);
+        create_ordinal_function!(ordinal_usize, |x: usize| x, usize);
+
+        create_ordinalize_function!(ordinalize_i8, ordinal_i8, i8);
+        create_ordinalize_function!(ordinalize_i16, ordinal_i16, i16);
+        create_ordinalize_function!(ordinalize_i32, ordinal_i32, i32);
+        create_ordinalize_function!(ordinalize_i64, ordinal_i64, i64);
+        create_ordinalize_function!(ordinalize_i128, ordinal_i128, i128);
+        create_ordinalize_function!(ordinalize_u8, ordinal_u8, u8);
+        create_ordinalize_function!(ordinalize_u16, ordinal_u16, u16);
+        create_ordinalize_function!(ordinalize_u32, ordinal_u32, u32);
+        create_ordinalize_function!(ordinalize_u64, ordinal_u64, u64);
+        create_ordinalize_function!(ordinalize_u128, ordinal_u128, u128);
+        create_ordinalize_function!(ordinalize_usize, ordinal_usize, usize);
+
         pub fn camelize<S: AsRef<str>>(&mut self, string: S) -> String {
             return self.camelize_upper(string, true);
         }
@@ -431,39 +474,6 @@ mod inflection {
             result
         }
 
-        pub fn ordinal_unsigned(&self, number: usize) -> String {
-            match number % 100 {
-                11 | 12 | 13 => "th".to_string(),
-                _ => match number % 10 {
-                    1 => "st".to_string(),
-                    2 => "nd".to_string(),
-                    3 => "rd".to_string(),
-                    _ => "th".to_string(),
-                },
-            }
-        }
-
-        pub fn ordinal(&self, number: i128) -> String {
-            let n = number.abs();
-            match n % 100 {
-                11 | 12 | 13 => "th".to_string(),
-                _ => match n % 10 {
-                    1 => "st".to_string(),
-                    2 => "nd".to_string(),
-                    3 => "rd".to_string(),
-                    _ => "th".to_string(),
-                },
-            }
-        }
-
-        pub fn ordinalize_unsigned(&self, number: usize) -> String {
-            format!("{}{}", number, self.ordinal_unsigned(number))
-        }
-
-        pub fn ordinalize(&self, number: i128) -> String {
-            format!("{}{}", number, self.ordinal(number))
-        }
-
         pub fn underscore<S: AsRef<str>>(&mut self, string: S) -> String {
             let prog1 = self.compile_regex(r"(?P<a>[A-Z]+)(?P<b>[A-Z][a-z])");
             let prog2 = self.compile_regex(r"(?P<a>[a-z\d])(?P<b>[A-Z])");
@@ -520,7 +530,7 @@ mod inflection {
                     _ => {
                         regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
                         regex_cache.get(rule).unwrap()
-                    },
+                    }
                 };
                 if re.is_match(&word) {
                     return re.replace_all(&word, repl).to_string();
@@ -542,7 +552,7 @@ mod inflection {
                         let pattern_copy = pattern.to_owned();
                         regex_cache.insert(pattern, Regex::new(&pattern_copy).unwrap());
                         regex_cache.get(&pattern_copy).unwrap()
-                    },
+                    }
                 };
                 if re.is_match(&word) {
                     return word;
@@ -555,7 +565,7 @@ mod inflection {
                     _ => {
                         regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
                         regex_cache.get(rule).unwrap()
-                    },
+                    }
                 };
                 if re.is_match(&word) {
                     return re.replace_all(&word, repl).to_string();
@@ -788,70 +798,6 @@ mod tests {
         ("Ana Índia", "Ana Índia"),
     ];
 
-    const ORDINAL_NUMBERS: [(&str, &str); 61] = [
-        ("-1", "-1st"),
-        ("-2", "-2nd"),
-        ("-3", "-3rd"),
-        ("-4", "-4th"),
-        ("-5", "-5th"),
-        ("-6", "-6th"),
-        ("-7", "-7th"),
-        ("-8", "-8th"),
-        ("-9", "-9th"),
-        ("-10", "-10th"),
-        ("-11", "-11th"),
-        ("-12", "-12th"),
-        ("-13", "-13th"),
-        ("-14", "-14th"),
-        ("-20", "-20th"),
-        ("-21", "-21st"),
-        ("-22", "-22nd"),
-        ("-23", "-23rd"),
-        ("-24", "-24th"),
-        ("-100", "-100th"),
-        ("-101", "-101st"),
-        ("-102", "-102nd"),
-        ("-103", "-103rd"),
-        ("-104", "-104th"),
-        ("-110", "-110th"),
-        ("-111", "-111th"),
-        ("-112", "-112th"),
-        ("-113", "-113th"),
-        ("-1000", "-1000th"),
-        ("-1001", "-1001st"),
-        ("0", "0th"),
-        ("1", "1st"),
-        ("2", "2nd"),
-        ("3", "3rd"),
-        ("4", "4th"),
-        ("5", "5th"),
-        ("6", "6th"),
-        ("7", "7th"),
-        ("8", "8th"),
-        ("9", "9th"),
-        ("10", "10th"),
-        ("11", "11th"),
-        ("12", "12th"),
-        ("13", "13th"),
-        ("14", "14th"),
-        ("20", "20th"),
-        ("21", "21st"),
-        ("22", "22nd"),
-        ("23", "23rd"),
-        ("24", "24th"),
-        ("100", "100th"),
-        ("101", "101st"),
-        ("102", "102nd"),
-        ("103", "103rd"),
-        ("104", "104th"),
-        ("110", "110th"),
-        ("111", "111th"),
-        ("112", "112th"),
-        ("113", "113th"),
-        ("1000", "1000th"),
-        ("1001", "1001st"),
-    ];
-
     const UNDERSCORES_TO_DASHES: [(&str, &str); 3] = [
         ("street", "street"),
         ("street_address", "street-address"),
@@ -895,44 +841,6 @@ mod tests {
         let mut inflection = Inflection::new();
         assert_eq!(inflection.humanize("employee_salary"), "Employee salary");
         assert_eq!(inflection.humanize("author_id"), "Author");
-    }
-
-    #[test]
-    fn ordinal_unsigned() {
-        let inflection = Inflection::new();
-        assert_eq!(inflection.ordinal_unsigned(1), "st");
-        assert_eq!(inflection.ordinal_unsigned(2), "nd");
-        assert_eq!(inflection.ordinal_unsigned(1002), "nd");
-        assert_eq!(inflection.ordinal_unsigned(1003), "rd");
-    }
-
-    #[test]
-    fn ordinal() {
-        let inflection = Inflection::new();
-        assert_eq!(inflection.ordinal(1), "st");
-        assert_eq!(inflection.ordinal(2), "nd");
-        assert_eq!(inflection.ordinal(1002), "nd");
-        assert_eq!(inflection.ordinal(1003), "rd");
-        assert_eq!(inflection.ordinal(-11), "th");
-        assert_eq!(inflection.ordinal(-1021), "st");
-    }
-    #[test]
-    fn ordinalize_unsigned() {
-        let inflection = Inflection::new();
-        assert_eq!(inflection.ordinalize_unsigned(1), "1st");
-        assert_eq!(inflection.ordinalize_unsigned(2), "2nd");
-        assert_eq!(inflection.ordinalize_unsigned(1002), "1002nd");
-        assert_eq!(inflection.ordinalize_unsigned(1003), "1003rd");
-    }
-    #[test]
-    fn ordinalize() {
-        let inflection = Inflection::new();
-        assert_eq!(inflection.ordinalize(1), "1st");
-        assert_eq!(inflection.ordinalize(2), "2nd");
-        assert_eq!(inflection.ordinalize(1002), "1002nd");
-        assert_eq!(inflection.ordinalize(1003), "1003rd");
-        assert_eq!(inflection.ordinalize(-11), "-11th");
-        assert_eq!(inflection.ordinalize(-1021), "-1021st");
     }
 
     #[test]
@@ -1027,23 +935,6 @@ mod tests {
     }
 
     #[test]
-    fn ordinalize_bulk() {
-        let inflection = Inflection::new();
-
-        for (input, expected) in ORDINAL_NUMBERS {
-            let n: i128 = input.to_string().parse::<i128>().unwrap();
-            let expected_u: String = if n < 0 {
-                substr!(expected.to_string(), 1).to_string()
-            } else {
-                expected.to_string()
-            };
-
-            assert_eq!(inflection.ordinalize(n), expected);
-            assert_eq!(inflection.ordinalize_unsigned(n.abs() as usize), expected_u);
-        }
-    }
-
-    #[test]
     fn pluralize_bulk() {
         let mut inflection = Inflection::new();
         for (input, expected) in SINGULAR_TO_PLURAL {
@@ -1128,4 +1019,86 @@ mod tests {
             );
         }
     }
+
+    macro_rules! test_ordinal {
+        ($ordinal:ident, $ordinalize:ident, $ordinalize_bulk:ident, $param_type:ty) => {
+            #[test]
+            fn $ordinal() {
+                let inflection = Inflection::new();
+                assert_eq!(inflection.$ordinal(1), "st");
+                assert_eq!(inflection.$ordinal(2), "nd");
+                assert_eq!(inflection.$ordinal(3), "rd");
+                assert_eq!(inflection.$ordinal(4), "th");
+                assert_eq!(inflection.$ordinal(10), "th");
+
+                assert_eq!(inflection.$ordinal(1002), "nd");
+                assert_eq!(inflection.$ordinal(1003), "rd");
+            }
+
+            #[test]
+            fn $ordinalize() {
+                let inflection = Inflection::new();
+                assert_eq!(inflection.$ordinalize(1), "1st");
+                assert_eq!(inflection.$ordinalize(2), "2nd");
+                assert_eq!(inflection.$ordinalize(3), "3rd");
+                assert_eq!(inflection.$ordinalize(4), "4th");
+                assert_eq!(inflection.$ordinalize(10), "10th");
+                assert_eq!(inflection.$ordinalize(1002), "1002nd");
+                assert_eq!(inflection.$ordinalize(1003), "1003rd");
+            }
+
+            #[test]
+            fn $ordinalize_bulk() {
+                let inflection = Inflection::new();
+
+                let ordinal_numbers: [($param_type, &str); 31] = [
+                    (0, "0th"),
+                    (1, "1st"),
+                    (2, "2nd"),
+                    (3, "3rd"),
+                    (4, "4th"),
+                    (5, "5th"),
+                    (6, "6th"),
+                    (7, "7th"),
+                    (8, "8th"),
+                    (9, "9th"),
+                    (10, "10th"),
+                    (11, "11th"),
+                    (12, "12th"),
+                    (13, "13th"),
+                    (14, "14th"),
+                    (20, "20th"),
+                    (21, "21st"),
+                    (22, "22nd"),
+                    (23, "23rd"),
+                    (24, "24th"),
+                    (100, "100th"),
+                    (101, "101st"),
+                    (102, "102nd"),
+                    (103, "103rd"),
+                    (104, "104th"),
+                    (110, "110th"),
+                    (111, "111th"),
+                    (112, "112th"),
+                    (113, "113th"),
+                    (1000, "1000th"),
+                    (1001, "1001st"),
+                ];
+
+                for (input, expected) in ordinal_numbers {
+                    assert_eq!(inflection.$ordinalize(input), expected);
+                }
+            }
+        };
+    }
+
+    test_ordinal!(ordinal_u16, ordinalize_u16, oridinalize_u16_bulk, u16);
+    test_ordinal!(ordinal_u32, ordinalize_u32, oridinalize_u32_bulk, u32);
+    test_ordinal!(ordinal_u64, ordinalize_u64, oridinalize_u64_bulk, u64);
+    test_ordinal!(ordinal_u128, ordinalize_u128, oridinalize_u128_bulk, u128);
+
+    test_ordinal!(ordinal_i16, ordinalize_i16, oridinalize_i16_bulk, i16);
+    test_ordinal!(ordinal_i32, ordinalize_i32, oridinalize_i32_bulk, i32);
+    test_ordinal!(ordinal_i64, ordinalize_i64, oridinalize_i64_bulk, i64);
+    test_ordinal!(ordinal_i128, ordinalize_i128, oridinalize_i128_bulk, i128);
 }
