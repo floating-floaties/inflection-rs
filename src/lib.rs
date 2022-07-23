@@ -7,17 +7,25 @@ mod inflection {
     use regex::Regex;
 
     macro_rules! substr {
-        ($str:expr, $pos:expr) => {{
+        ($str:expr, $start_pos:expr) => {{
+            substr!($str, $start_pos, $str.len())
+        }};
+
+        ($str:expr, $start_pos:expr, $end_pos:expr) => {{
+            // TODO: may overflow
+            substr!($str, $start_pos, $end_pos - $start_pos, true)
+        }};
+
+        ($str:expr, $start_pos:expr, $take_count:expr, $use_take:expr) => {{
             &$str
-                .as_str()
                 .chars()
-                .skip($pos)
-                .take($str.len())
+                .skip($start_pos)
+                .take($take_count)
                 .collect::<String>()
         }};
     }
 
-    macro_rules! caseinsensitive {
+    macro_rules! case_insensitive {
         ($str:expr) => {{
             &$str
                 .as_str()
@@ -26,11 +34,16 @@ mod inflection {
                 .collect::<String>()
         }};
     }
+    pub(crate) use substr;
+
+    fn example(a: String, start: usize, end: usize) -> String {
+        substr!(a, start, end).to_string()
+    }
 
     pub struct Inflection {
         plurals: Vec<(String, String)>,
         singulars: Vec<(String, String)>,
-        uncountables: HashSet<String>,
+        uncountable: HashSet<String>,
         regex_cache: HashMap<String, Regex>,
     }
 
@@ -146,7 +159,7 @@ mod inflection {
                 (r"(?i)s$".to_string(), "".to_string()),
             ];
 
-            let uncountables: HashSet<String> = HashSet::from([
+            let uncountable: HashSet<String> = HashSet::from([
                 "equipment".to_string(),
                 "fish".to_string(),
                 "information".to_string(),
@@ -161,7 +174,7 @@ mod inflection {
             return Inflection {
                 singulars,
                 plurals,
-                uncountables,
+                uncountable,
                 regex_cache: HashMap::new(),
             };
         }
@@ -180,7 +193,7 @@ mod inflection {
             return result;
         }
 
-        fn compile_regex<S: AsRef<str>>(&mut self, pattern: S) -> regex::Regex {
+        fn compile_regex<S: AsRef<str>>(&mut self, pattern: S) -> Regex {
             let expression = pattern.as_ref().to_string();
             match self.regex_cache.get(&expression) {
                 Some(re) => re.to_owned(),
@@ -267,7 +280,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             singular_first_char.to_uppercase().to_string(),
-                            caseinsensitive!(singular_stem)
+                            case_insensitive!(singular_stem)
                         ),
                         plural_copy_upper1,
                     ),
@@ -278,7 +291,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             singular_first_char.to_lowercase().to_string(),
-                            caseinsensitive!(singular_stem)
+                            case_insensitive!(singular_stem)
                         ),
                         plural_copy_lower1,
                     ),
@@ -289,7 +302,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             plural_first_char.to_uppercase().to_string(),
-                            caseinsensitive!(plural_stem)
+                            case_insensitive!(plural_stem)
                         ),
                         plural_copy_upper2,
                     ),
@@ -300,7 +313,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             plural_first_char.to_lowercase().to_string(),
-                            caseinsensitive!(plural_stem)
+                            case_insensitive!(plural_stem)
                         ),
                         plural_copy_lower2,
                     ),
@@ -311,7 +324,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             plural_first_char.to_uppercase().to_string(),
-                            caseinsensitive!(plural_stem)
+                            case_insensitive!(plural_stem)
                         ),
                         singular_copy_upper1,
                     ),
@@ -322,7 +335,7 @@ mod inflection {
                         format!(
                             r"{}{}$",
                             plural_first_char.to_lowercase().to_string(),
-                            caseinsensitive!(plural_stem)
+                            case_insensitive!(plural_stem)
                         ),
                         singular_copy_lower1,
                     ),
@@ -464,8 +477,8 @@ mod inflection {
 
             if !is_sep_empty {
                 let re_sep = regex::escape(&sep_copy);
-                let sep_prog = self.compile_regex(format!(r"{re_sep}{re_sep}"));
-                let leading_sep_prog = self.compile_regex(format!(r"(?i)^{re_sep}|{re_sep}$"));
+                let sep_prog = self.compile_regex(format!(r"{}{}", re_sep, re_sep));
+                let leading_sep_prog = self.compile_regex(format!(r"(?i)^{}|{}$", re_sep, re_sep));
                 result = sep_prog.replace_all(&result, sep_copy).to_string();
                 result = leading_sep_prog.replace_all(&result, "").to_string();
             }
@@ -480,10 +493,10 @@ mod inflection {
         pub fn pluralize<S: AsRef<str>>(&mut self, string: S) -> String {
             let word: String = string.as_ref().to_string();
             let word_is_empty: bool = word.is_empty();
-            let word_is_in_uncountables: bool = self.uncountables.contains(&word.to_lowercase());
+            let word_is_in_uncountable: bool = self.uncountable.contains(&word.to_lowercase());
 
-            println!("word={word}; word_is_empty={word_is_empty}; word_is_in_uncountables={word_is_in_uncountables}");
-            if word_is_empty || word_is_in_uncountables {
+            // println!("word={word}; word_is_empty={word_is_empty}; word_is_in_uncountables={word_is_in_uncountable}");
+            if word_is_empty || word_is_in_uncountable {
                 return word;
             }
 
@@ -500,7 +513,7 @@ mod inflection {
 
         pub fn singularize<S: AsRef<str>>(&mut self, string: S) -> String {
             let word: String = string.as_ref().to_string();
-            for inf in self.uncountables.iter() {
+            for inf in self.uncountable.iter() {
                 // TODO: use cache for regex compilation
                 let re = Regex::new(format!(r"(?i)\b({})\z", inf).as_ref()).unwrap();
                 if re.find(&word).is_some() {
@@ -556,18 +569,7 @@ mod inflection {
 
 #[cfg(test)]
 mod tests {
-    use crate::inflection::Inflection;
-
-    macro_rules! substr {
-        ($str:expr, $pos:expr) => {{
-            &$str
-                .to_string()
-                .chars()
-                .skip($pos)
-                .take($str.len())
-                .collect::<String>()
-        }};
-    }
+    use crate::inflection::{substr, Inflection};
 
     const SINGULAR_TO_PLURAL: [(&str, &str); 82] = [
         ("search", "searches"),
@@ -819,6 +821,16 @@ mod tests {
     ];
 
     #[test]
+    fn substring_macro() {
+        assert_eq!(substr!("1Hello".to_string(), 1), "Hello");
+        assert_eq!(substr!("1Hello", 1), "Hello");
+        assert_eq!(substr!("1Help-o", 1, 5), "Help");
+        assert_eq!(substr!("", 2, 42), "");
+        assert_eq!(substr!("<secret>42</secret>", 8, 10), "42");
+        assert_eq!(substr!("<secret>42</secret>", 8, 2, true), "42");
+    }
+
+    #[test]
     fn camelize() {
         let mut inflection = Inflection::new();
 
@@ -972,7 +984,7 @@ mod tests {
         for (input, expected) in ORDINAL_NUMBERS {
             let n: i128 = input.to_string().parse::<i128>().unwrap();
             let expected_u: String = if n < 0 {
-                substr!(expected, 1).to_string()
+                substr!(expected.to_string(), 1).to_string()
             } else {
                 expected.to_string()
             };
