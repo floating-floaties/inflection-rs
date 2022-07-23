@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 
 mod inflection {
-    use std::collections::{HashMap, HashSet};
+    use hashbrown::{HashMap, HashSet};
 
     use regex::Regex;
 
