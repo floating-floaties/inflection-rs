@@ -189,6 +189,19 @@ mod inflection {
             result.irregular("move".to_string(), "moves".to_string());
             result.irregular("cow".to_string(), "kine".to_string());
             result.irregular("zombie".to_string(), "zombies".to_string());
+            result.irregular("slave".to_string(), "slaves".to_string());
+            result.irregular("this".to_string(), "this".to_string());
+            result.irregular("flour".to_string(), "flour".to_string());
+            result.irregular("milk".to_string(), "milk".to_string());
+            result.irregular("water".to_string(), "water".to_string());
+            result.irregular("reserve".to_string(), "reserves".to_string());
+            result.irregular("gas".to_string(), "gasses".to_string());
+            result.irregular("bias".to_string(), "biases".to_string());
+            result.irregular("atlas".to_string(), "atlases".to_string());
+            result.irregular("goose".to_string(), "geese".to_string());
+            result.irregular("pasta".to_string(), "pastas".to_string());
+            result.irregular("slice".to_string(), "slices".to_string());
+            result.irregular("cactus".to_string(), "cacti".to_string());
 
             return result;
         }
@@ -569,8 +582,6 @@ mod inflection {
             let input_string = string.as_ref().to_owned();
             let mut result: String = self.underscore(string);
             result = self.humanize(result);
-            // let result = self.title(result);
-
             let first_prog = self.compile_regex(r"\b((\s+)?'?\w)");
             for cap in first_prog.find_iter(&input_string) {
                 result.replace_range(cap.range(), cap.as_str());
@@ -581,7 +592,6 @@ mod inflection {
                 .collect::<String>()
                 .trim()
                 .to_string();
-
             result
         }
     }
@@ -591,7 +601,7 @@ mod inflection {
 mod tests {
     use crate::inflection::{substr, Inflection};
 
-    const SINGULAR_TO_PLURAL: [(&str, &str); 82] = [
+    const SINGULAR_TO_PLURAL: [(&str, &str); 90] = [
         ("search", "searches"),
         ("switch", "switches"),
         ("fix", "fixes"),
@@ -674,6 +684,14 @@ mod tests {
         ("cow", "kine"),
         ("database", "databases"),
         ("human", "humans"),
+        ("flour", "flour"),
+        ("water", "water"),
+        ("slave", "slaves"),
+        ("milk", "milk"),
+        ("reserve", "reserves"),
+        ("gas", "gasses"),
+        ("bias", "biases"),
+        ("atlas", "atlases"),
     ];
 
     const CAMEL_TO_UNDERSCORE: [(&str, &str); 4] = [
@@ -959,6 +977,8 @@ mod tests {
         assert_eq!(inflection.pluralize("move"), "moves");
         assert_eq!(inflection.pluralize("cow"), "kine");
         assert_eq!(inflection.pluralize("kine"), "kine");
+        assert_eq!(inflection.pluralize("slave"), "slaves");
+        assert_eq!(inflection.pluralize("slaves"), "slaves");
     }
 
     #[test]
@@ -973,6 +993,8 @@ mod tests {
         assert_eq!(inflection.singularize("moves"), "move");
         assert_eq!(inflection.singularize("cow"), "cow");
         assert_eq!(inflection.singularize("kine"), "cow");
+        assert_eq!(inflection.singularize("slaves"), "slave");
+        assert_eq!(inflection.singularize("slave"), "slave");
     }
 
     #[test]
