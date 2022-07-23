@@ -3,7 +3,6 @@
 mod inflection {
     use std::collections::{HashMap, HashSet};
 
-    use deunicode::deunicode;
     use regex::Regex;
 
     macro_rules! substr {
@@ -49,6 +48,7 @@ mod inflection {
 
     impl Inflection {
         fn init() -> Self {
+            let regex_cache = HashMap::new();
             let plurals: Vec<(String, String)> = vec![
                 (r"(?i)(?P<a>quiz)$".to_string(), "${a}zes".to_string()),
                 (r"(?i)^(?P<a>oxen)$".to_string(), "${a}".to_string()),
@@ -175,7 +175,7 @@ mod inflection {
                 singulars,
                 plurals,
                 uncountable,
-                regex_cache: HashMap::new(),
+                regex_cache,
             };
         }
 
@@ -463,7 +463,7 @@ mod inflection {
         }
 
         pub fn transliterate<S: AsRef<str>>(&self, string: S) -> String {
-            deunicode(string.as_ref())
+            deunicode::deunicode(string.as_ref())
         }
 
         pub fn parameterize_with_sep<S: AsRef<str>>(&mut self, string: S, sep: String) -> String {
@@ -495,15 +495,21 @@ mod inflection {
             let word_is_empty: bool = word.is_empty();
             let word_is_in_uncountable: bool = self.uncountable.contains(&word.to_lowercase());
 
-            // println!("word={word}; word_is_empty={word_is_empty}; word_is_in_uncountables={word_is_in_uncountable}");
             if word_is_empty || word_is_in_uncountable {
                 return word;
             }
 
+            let regex_cache = &mut self.regex_cache;
+
             for (rule, repl) in self.plurals.iter() {
-                // TODO: use cache for regex compilation
-                let re = Regex::new(rule).unwrap();
-                if re.find(&word).is_some() {
+                let re: &Regex = match regex_cache.get(rule) {
+                    Some(re) => re,
+                    _ => {
+                        regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
+                        regex_cache.get(rule).unwrap()
+                    },
+                };
+                if re.is_match(&word) {
                     return re.replace_all(&word, repl).to_string();
                 }
             }
@@ -513,18 +519,32 @@ mod inflection {
 
         pub fn singularize<S: AsRef<str>>(&mut self, string: S) -> String {
             let word: String = string.as_ref().to_string();
+            let regex_cache = &mut self.regex_cache;
+
             for inf in self.uncountable.iter() {
-                // TODO: use cache for regex compilation
-                let re = Regex::new(format!(r"(?i)\b({})\z", inf).as_ref()).unwrap();
-                if re.find(&word).is_some() {
+                let pattern = format!(r"(?i)\b({})\z", inf);
+                let re: &Regex = match regex_cache.get(&pattern) {
+                    Some(re) => re,
+                    _ => {
+                        let pattern_copy = pattern.to_owned();
+                        regex_cache.insert(pattern, Regex::new(&pattern_copy).unwrap());
+                        regex_cache.get(&pattern_copy).unwrap()
+                    },
+                };
+                if re.is_match(&word) {
                     return word;
                 }
             }
 
             for (rule, repl) in self.singulars.iter() {
-                // TODO: use cache for regex compilation
-                let re = Regex::new(rule).unwrap();
-                if re.find(&word).is_some() {
+                let re: &Regex = match regex_cache.get(rule) {
+                    Some(re) => re,
+                    _ => {
+                        regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
+                        regex_cache.get(rule).unwrap()
+                    },
+                };
+                if re.is_match(&word) {
                     return re.replace_all(&word, repl).to_string();
                 }
             }
@@ -681,7 +701,11 @@ mod tests {
         (r"!@#Leading bad characters", "leading-bad-characters"),
         (r"Squeeze   separators", "squeeze-separators"),
         (r"Test with + sign", "test-with-sign"),
-        (r"Test with malformed utf8 \251", "test-with-malformed-utf8"),
+        // (r"Test with malformed utf8 \251", "test-with-malformed-utf8"),
+        (
+            r"Test with malformed utf8 \251",
+            "test-with-malformed-utf8-251",
+        ),
     ];
 
     const STRING_TO_PARAMETERIZE_WITH_NO_SEPARATOR: [(&str, &str); 8] = [
@@ -695,7 +719,7 @@ mod tests {
         (r"!@#Leading bad characters", "leadingbadcharacters"),
         (r"Squeeze   separators", "squeezeseparators"),
         (r"Test with + sign", "testwithsign"),
-        (r"Test with malformed utf8 \251", "testwithmalformedutf8"),
+        (r"Test with malformed utf8 \251", "testwithmalformedutf8251"),
     ];
 
     const STRING_TO_PARAMETERIZE_WITH_UNDERSCORE: [(&str, &str); 9] = [
@@ -710,16 +734,19 @@ mod tests {
         (r"!@#Leading bad characters", "leading_bad_characters"),
         (r"Squeeze   separators", "squeeze_separators"),
         (r"Test with + sign", "test_with_sign"),
-        (r"Test with malformed utf8 \251", "test_with_malformed_utf8"),
+        (
+            r"Test with malformed utf8 \251",
+            "test_with_malformed_utf8_251",
+        ),
     ];
 
     const STRING_TO_PARAMETERIZED_AND_NORMALIZED: [(&str, &str); 6] = [
         (r"Malmö", "malmo"),
         (r"Garçons", "garcons"),
-        (r"Ops\331", "opsu"),
-        (r"Ærøskøbing", "rskbing"),
-        (r"Aßlar", "alar"),
-        (r"Japanese: 日本語", "japanese"),
+        (r"Ops\331", "ops-331"),
+        (r"Ærøskøbing", "aeroskobing"),
+        (r"Aßlar", "asslar"),
+        (r"日本語", "ri-ben-yu"),
     ];
 
     const UNDERSCORE_TO_HUMAN: [(&str, &str); 3] = [
@@ -872,7 +899,7 @@ mod tests {
         assert_eq!(inflection.ordinal(-1021), "st");
     }
     #[test]
-    fn ordinalize_unsiged() {
+    fn ordinalize_unsigned() {
         let inflection = Inflection::new();
         assert_eq!(inflection.ordinalize_unsigned(1), "1st");
         assert_eq!(inflection.ordinalize_unsigned(2), "2nd");
@@ -1016,6 +1043,10 @@ mod tests {
         for (expected, input) in UNDERSCORES_TO_DASHES {
             assert_eq!(inflection.underscore(input), expected);
         }
+
+        for (input, expected) in CAMEL_TO_UNDERSCORE_WITHOUT_REVERSE {
+            assert_eq!(inflection.underscore(input), expected);
+        }
     }
 
     #[test]
@@ -1032,10 +1063,6 @@ mod tests {
         for (input, expected) in STRING_TO_TABLEIZE {
             assert_eq!(inflection.tableize(input), expected);
         }
-
-        // for (input, expected) in MIXTURE_TO_TITLEIZED {
-        //     assert_eq!(inflection.tableize(input), expected);
-        // }
     }
 
     #[test]
@@ -1046,12 +1073,37 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn parameterize_bulk() {
+    #[test]
+    fn titleize_bulk() {
+        let mut inflection = Inflection::new();
+        for (input, expected) in MIXTURE_TO_TITLEIZED {
+            assert_eq!(inflection.titleize(input), expected);
+        }
+    }
 
-    //     let mut inflection = Inflection::new();
-    //     for (input, expected) in STRING_TO_PARAMETERIZED_AND_NORMALIZED {
-    //         assert_eq!(inflection.parameterize(input), expected);
-    //     }
-    // }
+    #[test]
+    fn parameterize_bulk() {
+        let mut inflection = Inflection::new();
+        for (input, expected) in STRING_TO_PARAMETERIZED {
+            assert_eq!(inflection.parameterize(input), expected);
+        }
+
+        for (input, expected) in STRING_TO_PARAMETERIZED_AND_NORMALIZED {
+            assert_eq!(inflection.parameterize(input), expected);
+        }
+
+        for (input, expected) in STRING_TO_PARAMETERIZE_WITH_UNDERSCORE {
+            assert_eq!(
+                inflection.parameterize_with_sep(input, "_".to_string()),
+                expected
+            );
+        }
+
+        for (input, expected) in STRING_TO_PARAMETERIZE_WITH_NO_SEPARATOR {
+            assert_eq!(
+                inflection.parameterize_with_sep(input, "".to_string()),
+                expected
+            );
+        }
+    }
 }
