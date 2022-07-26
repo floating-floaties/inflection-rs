@@ -1,5 +1,6 @@
+#[doc = include_str!("./../README.md")]
 #[allow(dead_code)]
-mod inflection {
+pub mod inflection {
     use hashbrown::{HashMap, HashSet};
     use regex::Regex;
 
@@ -609,7 +610,7 @@ mod inflection {
 
 #[cfg(test)]
 mod tests {
-    use crate::inflection::{substr, Inflection};
+    use crate::inflection::{Inflection, substr};
 
     const SINGULAR_TO_PLURAL: [(&str, &str); 90] = [
         ("search", "searches"),
@@ -819,111 +820,6 @@ mod tests {
         assert_eq!(substr!("", 2, 42), "");
         assert_eq!(substr!("<secret>42</secret>", 8, 10), "42");
         assert_eq!(substr!("<secret>42</secret>", 8, 2, true), "42");
-    }
-
-    #[test]
-    fn camelize() {
-        let mut inflection = Inflection::new();
-
-        assert_eq!(inflection.camelize_upper("Capital", false), "capital");
-        assert_eq!(inflection.camelize("Camel_Case"), "CamelCase");
-        assert_eq!(inflection.camelize("special_guest"), "SpecialGuest");
-    }
-
-    #[test]
-    fn dasherize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(inflection.dasherize("puni_puni"), "puni-puni");
-    }
-
-    #[test]
-    fn humanize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(inflection.humanize("employee_salary"), "Employee salary");
-        assert_eq!(inflection.humanize("author_id"), "Author");
-    }
-
-    #[test]
-    fn parameterize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(
-            inflection.parameterize_with_sep(r"Donald E. Knuth", "+".to_string()),
-            "donald+e+knuth"
-        );
-        assert_eq!(
-            inflection.parameterize_with_sep(r"Donald E. Knuth", "~".to_string()),
-            "donald~e~knuth"
-        );
-        assert_eq!(
-            inflection.parameterize_with_sep(r"Donald E. Knuth", "-".to_string()),
-            "donald-e-knuth"
-        );
-        assert_eq!(
-            inflection.parameterize(r"Donald E. Knuth"),
-            "donald-e-knuth"
-        );
-    }
-
-    #[test]
-    fn underscore() {
-        let mut inflection = Inflection::new();
-        assert_eq!(inflection.underscore("DeviceType"), "device_type");
-
-        let rev = inflection.underscore("IOError");
-        assert_eq!(inflection.camelize(rev), "IoError");
-    }
-
-    #[test]
-    fn pluralize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(inflection.pluralize("post"), "posts");
-        assert_eq!(inflection.pluralize("posts"), "posts");
-        assert_eq!(inflection.pluralize("octopus"), "octopi");
-        assert_eq!(inflection.pluralize("sheep"), "sheep");
-        assert_eq!(inflection.pluralize("CamelOctopus"), "CamelOctopi");
-        assert_eq!(inflection.pluralize("moves"), "moves");
-        assert_eq!(inflection.pluralize("move"), "moves");
-        assert_eq!(inflection.pluralize("cow"), "kine");
-        assert_eq!(inflection.pluralize("kine"), "kine");
-        assert_eq!(inflection.pluralize("slave"), "slaves");
-        assert_eq!(inflection.pluralize("slaves"), "slaves");
-    }
-
-    #[test]
-    fn singularize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(inflection.singularize("post"), "post");
-        assert_eq!(inflection.singularize("posts"), "post");
-        assert_eq!(inflection.singularize("octopi"), "octopus");
-        assert_eq!(inflection.singularize("sheep"), "sheep");
-        assert_eq!(inflection.singularize("CamelOctopi"), "CamelOctopus");
-        assert_eq!(inflection.singularize("move"), "move");
-        assert_eq!(inflection.singularize("moves"), "move");
-        assert_eq!(inflection.singularize("cow"), "cow");
-        assert_eq!(inflection.singularize("kine"), "cow");
-        assert_eq!(inflection.singularize("slaves"), "slave");
-        assert_eq!(inflection.singularize("slave"), "slave");
-    }
-
-    #[test]
-    fn titleize() {
-        let mut inflection = Inflection::new();
-        assert_eq!(
-            inflection.titleize("TheManWithoutAPast"),
-            "The Man Without A Past"
-        );
-        assert_eq!(
-            inflection.titleize("x-men: the last stand"),
-            "X Men: The Last Stand"
-        );
-        assert_eq!(
-            inflection.titleize("raiders_of_the_lost_ark"),
-            "Raiders Of The Lost Ark"
-        );
-        assert_eq!(
-            inflection.titleize("man from the boondocks"),
-            "Man From The Boondocks"
-        );
     }
 
     #[test]

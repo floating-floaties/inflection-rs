@@ -3,16 +3,15 @@ name = "inflection-rs"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.61.0"
-description = "Wrapper function of the evaluator crate. Provides python-like built-in functions."
+description = "Inflection is a string transformation library. It singularizes and pluralizes English words, and transforms strings from CamelCase to underscored string."
 readme = "README.md"
-homepage = "https://github.com/floating-floaties/eval-utility/"
-repository = "https://github.com/floating-floaties/eval-utility/"
+homepage = "https://github.com/floating-floaties/inflection-rs"
+repository = "https://github.com/floating-floaties/inflection-rs"
 license = "GPL-3.0-only"
-keywords = ["expression", "evaluator", "condition", "parse"]
+keywords = ["inflection", "parameterize", "pluralize", "singularize", "titleize"]
 exclude = ["Dockerfile", "target", "docker*", "*.lock", ".*"]
 
 [dependencies]
 hashbrown = "0.12.3"
 regex = "1.6.0"
 deunicode = "1.3.1"
-num-traits = "0.2"
