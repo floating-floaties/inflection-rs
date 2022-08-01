@@ -1,5 +1,7 @@
-#[doc = include_str!("./../README.md")]
 #[allow(dead_code)]
+#[forbid(unsafe_code)]
+
+#[doc = include_str!("./../README.md")]
 pub mod inflection {
     use hashbrown::{HashMap, HashSet};
     use regex::Regex;
