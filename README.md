@@ -187,3 +187,14 @@ assert_eq!(inflection.ordinalize_i64(-4), "-4th");
 assert_eq!(inflection.ordinalize_i128(-10000), "-10000th");
 assert_eq!(inflection.ordinalize_i128(-10000000), "-10000000th");
 ```
+
+### Normalize Spaces
+```rust
+use inflection_rs::inflection::Inflection;
+let mut inflection = Inflection::new();
+
+assert_eq!(inflection.normalize_spaces("   hello     there    "), "hello there");
+assert_eq!(inflection.normalize_spaces("   hell      o     there    "), "hell o there");
+assert_eq!(inflection.normalize_spaces(""), "");
+assert_eq!(inflection.normalize_spaces("   "), "");
+```

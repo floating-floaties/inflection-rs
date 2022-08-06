@@ -607,6 +607,12 @@ pub mod inflection {
                 .to_string();
             result
         }
+
+        pub fn normalize_spaces<S: AsRef<str>>(&mut self, string: S) -> String {
+            let re = self.compile_regex(r"\s+");
+            let text = string.as_ref();
+            return re.replace_all(text, " ").trim().to_string();
+        }
     }
 }
 
