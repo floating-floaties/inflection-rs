@@ -1,5 +1,5 @@
-#[allow(dead_code)]
-#[forbid(unsafe_code)]
+#![forbid(unsafe_code)]
+#![allow(dead_code)]
 
 #[doc = include_str!("./../README.md")]
 pub mod inflection {
@@ -233,7 +233,7 @@ pub mod inflection {
             match self.regex_cache.get(&expression) {
                 Some(re) => re.to_owned(),
                 _ => {
-                    let re = Regex::new(&expression).unwrap();
+                    let re = Regex::new(&expression).expect("Invalid regular expression");
                     self.regex_cache.insert(expression, re.to_owned());
                     return re;
                 }
@@ -241,8 +241,8 @@ pub mod inflection {
         }
 
         fn irregular(&mut self, singular: String, plural: String) {
-            let singular_first_char: char = singular.chars().nth(0).unwrap();
-            let plural_first_char: char = plural.chars().nth(0).unwrap(); //.collect::<Vec<char>>()[0].to_string();
+            let singular_first_char: char = singular.chars().nth(0).expect("Empty singular word supplied to irregular function");
+            let plural_first_char: char = plural.chars().nth(0).expect("Empty plural wrod supplied to irregular function");
 
             let plural_stem = substr!(plural, 1);
             let singular_stem = substr!(singular, 1);
@@ -413,6 +413,10 @@ pub mod inflection {
         ) -> String {
             let input_string = string.as_ref().to_owned();
 
+            if input_string.is_empty() {
+                return input_string;
+            }
+
             if uppercase_first_letter {
                 let re = self.compile_regex(r"(?:^|_)(.)");
                 let mut result: String = input_string.to_owned();
@@ -422,7 +426,7 @@ pub mod inflection {
                         .as_str()
                         .chars()
                         .last()
-                        .unwrap()
+                        .expect("empty string")
                         .to_uppercase()
                         .to_string();
                     result.replace_range(cap.range(), replace_with);
@@ -436,7 +440,7 @@ pub mod inflection {
                 .to_string()
                 .chars()
                 .nth(0)
-                .unwrap()
+                .expect("empty string")
                 .to_lowercase()
                 .to_string();
             result.push_str(substr!(input_string, 1));
@@ -455,6 +459,10 @@ pub mod inflection {
             let mut result: String = id_prog.replace_all(word.as_ref(), "").to_string();
             result = result.replace("_", " ");
 
+            if result.is_empty() {
+                return result;
+            }
+
             let updated_result = result.to_owned();
             for cap in stem_prog.find_iter(&updated_result) {
                 let replace_with = cap.as_str().to_lowercase().to_string();
@@ -467,7 +475,7 @@ pub mod inflection {
                     .as_str()
                     .chars()
                     .nth(0)
-                    .unwrap()
+                    .expect("empty string")
                     .to_uppercase()
                     .to_string();
                 let last_part = substr!(cap.as_str().to_string(), 1);
@@ -531,8 +539,8 @@ pub mod inflection {
                 let re: &Regex = match regex_cache.get(rule) {
                     Some(re) => re,
                     _ => {
-                        regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
-                        regex_cache.get(rule).unwrap()
+                        regex_cache.insert(rule.to_string(), Regex::new(rule).expect("Invalid regex rule"));
+                        regex_cache.get(rule).expect("Failed to get regex from cache after insertion")
                     }
                 };
                 if re.is_match(&word) {
@@ -553,8 +561,8 @@ pub mod inflection {
                     Some(re) => re,
                     _ => {
                         let pattern_copy = pattern.to_owned();
-                        regex_cache.insert(pattern, Regex::new(&pattern_copy).unwrap());
-                        regex_cache.get(&pattern_copy).unwrap()
+                        regex_cache.insert(pattern, Regex::new(&pattern_copy).expect("Invalid regex pattern"));
+                        regex_cache.get(&pattern_copy).expect("Failed to get regex from cache after insertion")
                     }
                 };
                 if re.is_match(&word) {
@@ -566,8 +574,8 @@ pub mod inflection {
                 let re: &Regex = match regex_cache.get(rule) {
                     Some(re) => re,
                     _ => {
-                        regex_cache.insert(rule.to_string(), Regex::new(rule).unwrap());
-                        regex_cache.get(rule).unwrap()
+                        regex_cache.insert(rule.to_string(), Regex::new(rule).expect("Invalid regex rule"));
+                        regex_cache.get(rule).expect("Failed to get regex from cache after insertion")
                     }
                 };
                 if re.is_match(&word) {
