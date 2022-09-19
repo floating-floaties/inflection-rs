@@ -1,6 +1,6 @@
 [package]
 name = "inflection-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.61.0"
 description = "Inflection is a string transformation library. It singularizes and pluralizes English words, and transforms strings from CamelCase to underscored string."
