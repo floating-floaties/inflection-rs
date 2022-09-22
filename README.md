@@ -9,7 +9,7 @@ This crate is a port of a port:
 ## Crate
 
 ```toml
-"inflection-rs" = "^0.1"
+inflection-rs = "^0.1"
 ```
 
 ## Documentation
@@ -19,7 +19,7 @@ This crate is a port of a port:
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.camelize_upper("Capital", false), "capital");
     assert_eq!(inflection.camelize("Camel_Case"), "CamelCase");
@@ -32,7 +32,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
     assert_eq!(inflection.dasherize("puni_puni"), "puni-puni");
 }
 ```
@@ -42,7 +42,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.humanize("employee_salary"), "Employee salary");
     assert_eq!(inflection.humanize("author_id"), "Author");
@@ -54,7 +54,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
     assert_eq!(
         inflection.parameterize_with_sep(r"Donald E. Knuth", "+".to_string()),
         "donald+e+knuth"
@@ -78,7 +78,7 @@ fn main() {
 ```rust
 use inflection_rs::inflection::Inflection;
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.underscore("DeviceType"), "device_type");
     // Note: not always reversible
@@ -92,7 +92,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.pluralize("post"), "posts");
     assert_eq!(inflection.pluralize("posts"), "posts");
@@ -113,7 +113,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.singularize("post"), "post");
     assert_eq!(inflection.singularize("posts"), "post");
@@ -134,7 +134,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;   
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(
         inflection.titleize("TheManWithoutAPast"),
@@ -161,7 +161,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;   
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.ordinal_u8(1), "st");
     assert_eq!(inflection.ordinal_u16(2), "nd");
@@ -191,7 +191,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;   
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.ordinalize_u8(1), "1st");
     assert_eq!(inflection.ordinalize_u16(2), "2nd");
@@ -222,7 +222,7 @@ fn main() {
 use inflection_rs::inflection::Inflection;
 
 fn main() {
-    let mut inflection = Inflection::new();
+    let mut inflection = Inflection::default();
 
     assert_eq!(inflection.normalize_spaces("   hello     there    "), "hello there");
     assert_eq!(inflection.normalize_spaces("   hell      o     there    "), "hell o there");

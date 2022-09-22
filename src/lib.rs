@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)]
 
+use crate::inflection::Inflection;
+
 #[doc = include_str!("./../README.md")]
 pub mod inflection {
     use hashbrown::{HashMap, HashSet};
@@ -69,7 +71,7 @@ pub mod inflection {
     }
 
     impl Inflection {
-        fn init() -> Self {
+        pub(crate) fn init() -> Self {
             let regex_cache = HashMap::new();
             let plurals: Vec<(String, String)> = vec![
                 (r"(?i)(?P<a>quiz)$".to_string(), "${a}zes".to_string()),
@@ -193,39 +195,12 @@ pub mod inflection {
                 "species".to_string(),
             ]);
 
-            return Inflection {
+            Self {
                 singulars,
                 plurals,
                 uncountable,
                 regex_cache,
-            };
-        }
-
-        pub fn new() -> Self {
-            let mut result = Self::init();
-            result.irregular("person".to_string(), "people".to_string());
-            result.irregular("man".to_string(), "men".to_string());
-            result.irregular("human".to_string(), "humans".to_string());
-            result.irregular("child".to_string(), "children".to_string());
-            result.irregular("sex".to_string(), "sexes".to_string());
-            result.irregular("move".to_string(), "moves".to_string());
-            result.irregular("cow".to_string(), "kine".to_string());
-            result.irregular("zombie".to_string(), "zombies".to_string());
-            result.irregular("slave".to_string(), "slaves".to_string());
-            result.irregular("this".to_string(), "this".to_string());
-            result.irregular("flour".to_string(), "flour".to_string());
-            result.irregular("milk".to_string(), "milk".to_string());
-            result.irregular("water".to_string(), "water".to_string());
-            result.irregular("reserve".to_string(), "reserves".to_string());
-            result.irregular("gas".to_string(), "gasses".to_string());
-            result.irregular("bias".to_string(), "biases".to_string());
-            result.irregular("atlas".to_string(), "atlases".to_string());
-            result.irregular("goose".to_string(), "geese".to_string());
-            result.irregular("pasta".to_string(), "pastas".to_string());
-            result.irregular("slice".to_string(), "slices".to_string());
-            result.irregular("cactus".to_string(), "cacti".to_string());
-
-            return result;
+            }
         }
 
         fn compile_regex<S: AsRef<str>>(&mut self, pattern: S) -> Regex {
@@ -233,16 +208,19 @@ pub mod inflection {
             match self.regex_cache.get(&expression) {
                 Some(re) => re.to_owned(),
                 _ => {
-                    let re = Regex::new(&expression).expect("Invalid regular expression");
+                    let re = Regex::new(&expression)
+                        .expect("Invalid regular expression");
                     self.regex_cache.insert(expression, re.to_owned());
-                    return re;
+                    re
                 }
             }
         }
 
-        fn irregular(&mut self, singular: String, plural: String) {
-            let singular_first_char: char = singular.chars().nth(0).expect("Empty singular word supplied to irregular function");
-            let plural_first_char: char = plural.chars().nth(0).expect("Empty plural wrod supplied to irregular function");
+        pub(crate) fn irregular(&mut self, singular: String, plural: String) {
+            let singular_first_char: char = singular.chars().next()
+                .expect("Empty singular word supplied to irregular function");
+            let plural_first_char: char = plural.chars().next()
+                .expect("Empty plural word supplied to irregular function");
 
             let plural_stem = substr!(plural, 1);
             let singular_stem = substr!(singular, 1);
@@ -275,37 +253,37 @@ pub mod inflection {
             } else {
                 let plural_copy_upper1 = format!(
                     "{}{}",
-                    plural_first_char.to_uppercase().to_string(),
+                    plural_first_char.to_uppercase(),
                     plural_stem
                 );
 
                 let plural_copy_lower1 = format!(
                     "{}{}",
-                    plural_first_char.to_lowercase().to_string(),
+                    plural_first_char.to_lowercase(),
                     plural_stem
                 );
 
                 let plural_copy_upper2 = format!(
                     "{}{}",
-                    plural_first_char.to_uppercase().to_string(),
+                    plural_first_char.to_uppercase(),
                     plural_stem
                 );
 
                 let plural_copy_lower2 = format!(
                     "{}{}",
-                    plural_first_char.to_lowercase().to_string(),
+                    plural_first_char.to_lowercase(),
                     plural_stem
                 );
 
                 let singular_copy_upper1 = format!(
                     "{}{}",
-                    singular_first_char.to_uppercase().to_string(),
+                    singular_first_char.to_uppercase(),
                     singular_stem
                 );
 
                 let singular_copy_lower1 = format!(
                     "{}{}",
-                    singular_first_char.to_lowercase().to_string(),
+                    singular_first_char.to_lowercase(),
                     singular_stem
                 );
 
@@ -314,7 +292,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            singular_first_char.to_uppercase().to_string(),
+                            singular_first_char.to_uppercase(),
                             case_insensitive!(singular_stem)
                         ),
                         plural_copy_upper1,
@@ -325,7 +303,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            singular_first_char.to_lowercase().to_string(),
+                            singular_first_char.to_lowercase(),
                             case_insensitive!(singular_stem)
                         ),
                         plural_copy_lower1,
@@ -336,7 +314,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            plural_first_char.to_uppercase().to_string(),
+                            plural_first_char.to_uppercase(),
                             case_insensitive!(plural_stem)
                         ),
                         plural_copy_upper2,
@@ -347,7 +325,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            plural_first_char.to_lowercase().to_string(),
+                            plural_first_char.to_lowercase(),
                             case_insensitive!(plural_stem)
                         ),
                         plural_copy_lower2,
@@ -358,7 +336,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            plural_first_char.to_uppercase().to_string(),
+                            plural_first_char.to_uppercase(),
                             case_insensitive!(plural_stem)
                         ),
                         singular_copy_upper1,
@@ -369,7 +347,7 @@ pub mod inflection {
                     (
                         format!(
                             r"{}{}$",
-                            plural_first_char.to_lowercase().to_string(),
+                            plural_first_char.to_lowercase(),
                             case_insensitive!(plural_stem)
                         ),
                         singular_copy_lower1,
@@ -403,7 +381,7 @@ pub mod inflection {
         create_ordinalize_function!(ordinalize_usize, ordinal_usize, usize);
 
         pub fn camelize<S: AsRef<str>>(&mut self, string: S) -> String {
-            return self.camelize_upper(string, true);
+            self.camelize_upper(string, true)
         }
 
         pub fn camelize_upper<S: AsRef<str>>(
@@ -439,7 +417,7 @@ pub mod inflection {
                 .as_ref()
                 .to_string()
                 .chars()
-                .nth(0)
+                .next()
                 .expect("empty string")
                 .to_lowercase()
                 .to_string();
@@ -448,7 +426,7 @@ pub mod inflection {
         }
 
         pub fn dasherize<S: AsRef<str>>(&mut self, word: S) -> String {
-            word.as_ref().to_string().replace("_", "-")
+            word.as_ref().to_string().replace('_', "-")
         }
 
         pub fn humanize<S: AsRef<str>>(&mut self, word: S) -> String {
@@ -457,7 +435,7 @@ pub mod inflection {
             let word_prog = self.compile_regex(r"^\w");
 
             let mut result: String = id_prog.replace_all(word.as_ref(), "").to_string();
-            result = result.replace("_", " ");
+            result = result.replace('_', " ");
 
             if result.is_empty() {
                 return result;
@@ -474,7 +452,7 @@ pub mod inflection {
                 let mut replace_with = cap
                     .as_str()
                     .chars()
-                    .nth(0)
+                    .next()
                     .expect("empty string")
                     .to_uppercase()
                     .to_string();
@@ -492,7 +470,7 @@ pub mod inflection {
             let mut word = string.as_ref().to_string();
             word = prog1.replace_all(&word, stand_in).to_string();
             word = prog2.replace_all(&word, stand_in).to_string();
-            word = word.replace("-", "_");
+            word = word.replace('-', "_");
             word.to_lowercase()
         }
 
@@ -538,7 +516,7 @@ pub mod inflection {
             for (rule, repl) in self.plurals.iter() {
                 let re: &Regex = match regex_cache.get(rule) {
                     Some(re) => re,
-                    _ => {
+                    None => {
                         regex_cache.insert(rule.to_string(), Regex::new(rule).expect("Invalid regex rule"));
                         regex_cache.get(rule).expect("Failed to get regex from cache after insertion")
                     }
@@ -559,7 +537,7 @@ pub mod inflection {
                 let pattern = format!(r"(?i)\b({})\z", inf);
                 let re: &Regex = match regex_cache.get(&pattern) {
                     Some(re) => re,
-                    _ => {
+                    None => {
                         let pattern_copy = pattern.to_owned();
                         regex_cache.insert(pattern, Regex::new(&pattern_copy).expect("Invalid regex pattern"));
                         regex_cache.get(&pattern_copy).expect("Failed to get regex from cache after insertion")
@@ -621,6 +599,35 @@ pub mod inflection {
             let text = string.as_ref();
             return re.replace_all(text, " ").trim().to_string();
         }
+    }
+}
+
+impl Default for Inflection {
+    fn default() -> Self {
+        let mut result = Self::init();
+        result.irregular("person".to_string(), "people".to_string());
+        result.irregular("man".to_string(), "men".to_string());
+        result.irregular("human".to_string(), "humans".to_string());
+        result.irregular("child".to_string(), "children".to_string());
+        result.irregular("sex".to_string(), "sexes".to_string());
+        result.irregular("move".to_string(), "moves".to_string());
+        result.irregular("cow".to_string(), "kine".to_string());
+        result.irregular("zombie".to_string(), "zombies".to_string());
+        result.irregular("slave".to_string(), "slaves".to_string());
+        result.irregular("this".to_string(), "this".to_string());
+        result.irregular("flour".to_string(), "flour".to_string());
+        result.irregular("milk".to_string(), "milk".to_string());
+        result.irregular("water".to_string(), "water".to_string());
+        result.irregular("reserve".to_string(), "reserves".to_string());
+        result.irregular("gas".to_string(), "gasses".to_string());
+        result.irregular("bias".to_string(), "biases".to_string());
+        result.irregular("atlas".to_string(), "atlases".to_string());
+        result.irregular("goose".to_string(), "geese".to_string());
+        result.irregular("pasta".to_string(), "pastas".to_string());
+        result.irregular("slice".to_string(), "slices".to_string());
+        result.irregular("cactus".to_string(), "cacti".to_string());
+
+        result
     }
 }
 
@@ -746,7 +753,6 @@ mod tests {
         (r"!@#Leading bad characters", "leading-bad-characters"),
         (r"Squeeze   separators", "squeeze-separators"),
         (r"Test with + sign", "test-with-sign"),
-        // (r"Test with malformed utf8 \251", "test-with-malformed-utf8"),
         (
             r"Test with malformed utf8 \251",
             "test-with-malformed-utf8-251",
@@ -840,7 +846,7 @@ mod tests {
 
     #[test]
     fn camelize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (expected, input) in CAMEL_TO_UNDERSCORE {
             assert_eq!(inflection.camelize(input), expected);
         }
@@ -848,7 +854,7 @@ mod tests {
 
     #[test]
     fn pluralize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in SINGULAR_TO_PLURAL {
             assert_eq!(inflection.pluralize(input), expected);
         }
@@ -856,7 +862,7 @@ mod tests {
 
     #[test]
     fn singularize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (expected, input) in SINGULAR_TO_PLURAL {
             assert_eq!(inflection.singularize(input), expected);
         }
@@ -864,7 +870,7 @@ mod tests {
 
     #[test]
     fn underscore_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (expected, input) in UNDERSCORES_TO_DASHES {
             assert_eq!(inflection.underscore(input), expected);
         }
@@ -876,7 +882,7 @@ mod tests {
 
     #[test]
     fn dasherize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in UNDERSCORES_TO_DASHES {
             assert_eq!(inflection.dasherize(input), expected);
         }
@@ -884,7 +890,7 @@ mod tests {
 
     #[test]
     fn tableize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in STRING_TO_TABLEIZE {
             assert_eq!(inflection.tableize(input), expected);
         }
@@ -892,7 +898,7 @@ mod tests {
 
     #[test]
     fn humanize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in UNDERSCORE_TO_HUMAN {
             assert_eq!(inflection.humanize(input), expected);
         }
@@ -900,7 +906,7 @@ mod tests {
 
     #[test]
     fn titleize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in MIXTURE_TO_TITLEIZED {
             assert_eq!(inflection.titleize(input), expected);
         }
@@ -908,7 +914,7 @@ mod tests {
 
     #[test]
     fn parameterize_bulk() {
-        let mut inflection = Inflection::new();
+        let mut inflection = Inflection::default();
         for (input, expected) in STRING_TO_PARAMETERIZED {
             assert_eq!(inflection.parameterize(input), expected);
         }
@@ -936,7 +942,7 @@ mod tests {
         ($ordinal:ident, $ordinalize:ident, $ordinalize_bulk:ident, $param_type:ty) => {
             #[test]
             fn $ordinal() {
-                let inflection = Inflection::new();
+                let inflection = Inflection::default();
                 assert_eq!(inflection.$ordinal(1), "st");
                 assert_eq!(inflection.$ordinal(2), "nd");
                 assert_eq!(inflection.$ordinal(3), "rd");
@@ -949,7 +955,7 @@ mod tests {
 
             #[test]
             fn $ordinalize() {
-                let inflection = Inflection::new();
+                let inflection = Inflection::default();
                 assert_eq!(inflection.$ordinalize(1), "1st");
                 assert_eq!(inflection.$ordinalize(2), "2nd");
                 assert_eq!(inflection.$ordinalize(3), "3rd");
@@ -961,7 +967,7 @@ mod tests {
 
             #[test]
             fn $ordinalize_bulk() {
-                let inflection = Inflection::new();
+                let inflection = Inflection::default();
 
                 let ordinal_numbers: [($param_type, &str); 31] = [
                     (0, "0th"),
