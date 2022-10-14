@@ -7,24 +7,7 @@ use crate::inflection::Inflection;
 pub mod inflection {
     use hashbrown::{HashMap, HashSet};
     use regex::Regex;
-
-    macro_rules! substr {
-        ($str:expr, $start_pos:expr) => {{
-            substr!($str, $start_pos, $str.len())
-        }};
-
-        ($str:expr, $start_pos:expr, $end_pos:expr) => {{
-            substr!($str, $start_pos, $end_pos - $start_pos, true)
-        }};
-
-        ($str:expr, $start_pos:expr, $take_count:expr, $use_take:expr) => {{
-            &$str
-                .chars()
-                .skip($start_pos)
-                .take($take_count)
-                .collect::<String>()
-        }};
-    }
+    use string_utility::prelude::*;
 
     macro_rules! case_insensitive {
         ($str:expr) => {{
@@ -60,8 +43,6 @@ pub mod inflection {
             }
         };
     }
-
-    pub(crate) use substr;
 
     pub struct Inflection {
         plurals: Vec<(String, String)>,
@@ -222,8 +203,8 @@ pub mod inflection {
             let plural_first_char: char = plural.chars().next()
                 .expect("Empty plural word supplied to irregular function");
 
-            let plural_stem = substr!(plural, 1);
-            let singular_stem = substr!(singular, 1);
+            let plural_stem = plural.substring(1..);
+            let singular_stem = singular.substring(1..);
 
             if singular_first_char.to_string().to_uppercase()
                 == plural_first_char.to_string().to_uppercase()
@@ -421,7 +402,7 @@ pub mod inflection {
                 .expect("empty string")
                 .to_lowercase()
                 .to_string();
-            result.push_str(substr!(input_string, 1));
+            result.push_str(input_string.substring(1..).as_str());
             result
         }
 
@@ -456,8 +437,8 @@ pub mod inflection {
                     .expect("empty string")
                     .to_uppercase()
                     .to_string();
-                let last_part = substr!(cap.as_str().to_string(), 1);
-                replace_with.push_str(last_part);
+                let last_part = cap.as_str().substring(1..);
+                replace_with.push_str(last_part.as_str());
                 result.replace_range(cap.range(), &replace_with);
             }
             result
@@ -633,7 +614,8 @@ impl Default for Inflection {
 
 #[cfg(test)]
 mod tests {
-    use crate::inflection::{Inflection, substr};
+    use crate::inflection::Inflection;
+    use string_utility::prelude::*;
 
     const SINGULAR_TO_PLURAL: [(&str, &str); 90] = [
         ("search", "searches"),
@@ -836,12 +818,10 @@ mod tests {
 
     #[test]
     fn substring_macro() {
-        assert_eq!(substr!("1Hello".to_string(), 1), "Hello");
-        assert_eq!(substr!("1Hello", 1), "Hello");
-        assert_eq!(substr!("1Help-o", 1, 5), "Help");
-        assert_eq!(substr!("", 2, 42), "");
-        assert_eq!(substr!("<secret>42</secret>", 8, 10), "42");
-        assert_eq!(substr!("<secret>42</secret>", 8, 2, true), "42");
+        assert_eq!("1Hello".substring(1..), "Hello");
+        assert_eq!("1Help-o".substring(1..5), "Help");
+        assert_eq!("".substring(2..42), "");
+        assert_eq!("<secret>42</secret>".substring(8..10), "42");
     }
 
     #[test]
