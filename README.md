@@ -19,7 +19,6 @@ inflection-rs = "0.2.0"
 use inflection_rs::inflection;
 
 fn main() {
-
     assert_eq!(inflection::camelize_upper("Capital", false), "capital");
     assert_eq!(inflection::camelize("Camel_Case"), "CamelCase");
     assert_eq!(inflection::camelize("special_guest"), "SpecialGuest");
