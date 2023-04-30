@@ -1,60 +1,23 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)]
 
-use crate::inflection::Inflection;
+use hashbrown::HashSet;
+use regex::Regex;
+use lazy_static::lazy_static;
 
-#[doc = include_str!("./../README.md")]
-pub mod inflection {
-    use hashbrown::{HashMap, HashSet};
-    use regex::Regex;
-    use string_utility::prelude::*;
+macro_rules! case_insensitive {
+    ($str:expr) => {{
+        &$str
+            .chars()
+            .map(|c| format!("[{}{}]", c.to_string(), c.to_uppercase().to_string()))
+            .collect::<String>()
+    }};
+}
 
-    macro_rules! case_insensitive {
-        ($str:expr) => {{
-            &$str
-                .as_str()
-                .chars()
-                .map(|c| format!("[{}{}]", c.to_string(), c.to_uppercase().to_string()))
-                .collect::<String>()
-        }};
-    }
-
-    macro_rules! create_ordinal_function {
-        ($func_name:ident, $abs:expr, $param_type:ty) => {
-            pub fn $func_name(&self, number: $param_type) -> String {
-                let n = $abs(number);
-                match n % 100 {
-                    11 | 12 | 13 => "th".to_string(),
-                    _ => match n % 10 {
-                        1 => "st".to_string(),
-                        2 => "nd".to_string(),
-                        3 => "rd".to_string(),
-                        _ => "th".to_string(),
-                    },
-                }
-            }
-        };
-    }
-
-    macro_rules! create_ordinalize_function {
-        ($func_name:ident, $ordinal_function:ident, $param_type:ty) => {
-            pub fn $func_name(&self, number: $param_type) -> String {
-                format!("{}{}", number, self.$ordinal_function(number))
-            }
-        };
-    }
-
-    pub struct Inflection {
-        plurals: Vec<(String, String)>,
-        singulars: Vec<(String, String)>,
-        uncountable: HashSet<String>,
-        regex_cache: HashMap<String, Regex>,
-    }
-
-    impl Inflection {
-        pub(crate) fn init() -> Self {
-            let regex_cache = HashMap::new();
-            let plurals: Vec<(String, String)> = vec![
+type Upsc = (HashSet<String>, Vec<(Regex, String)>, Vec<(Regex, String)>, Vec<Regex>);
+lazy_static! {
+    static ref UPS: Upsc = {
+        let mut plurals: Vec<(String, String)> = vec![
                 (r"(?i)(?P<a>quiz)$".to_string(), "${a}zes".to_string()),
                 (r"(?i)^(?P<a>oxen)$".to_string(), "${a}".to_string()),
                 (r"(?i)^(?P<a>ox)$".to_string(), "${a}en".to_string()),
@@ -92,7 +55,7 @@ pub mod inflection {
                 (r"$".to_string(), "s".to_string()),
             ];
 
-            let singulars: Vec<(String, String)> = vec![
+            let mut singulars: Vec<(String, String)> = vec![
                 (r"(?i)(?P<a>database)s$".to_string(), "${a}".to_string()),
                 (r"(?i)(?P<a>quiz)zes$".to_string(), "${a}".to_string()),
                 (r"(?i)(?P<a>matr)ices$".to_string(), "${a}ix".to_string()),
@@ -164,59 +127,48 @@ pub mod inflection {
                 (r"(?i)s$".to_string(), "".to_string()),
             ];
 
-            let uncountable: HashSet<String> = HashSet::from([
-                "equipment".to_string(),
-                "fish".to_string(),
-                "information".to_string(),
-                "jeans".to_string(),
-                "money".to_string(),
-                "rice".to_string(),
-                "series".to_string(),
-                "sheep".to_string(),
-                "species".to_string(),
-            ]);
+        let uncountable = HashSet::<String>::from([
+            "equipment".to_string(),
+            "fish".to_string(),
+            "information".to_string(),
+            "jeans".to_string(),
+            "money".to_string(),
+            "rice".to_string(),
+            "series".to_string(),
+            "sheep".to_string(),
+            "species".to_string(),
+        ]);
 
-            Self {
-                singulars,
-                plurals,
-                uncountable,
-                regex_cache,
-            }
-        }
+        let uncountable_progs: Vec<Regex> = uncountable
+            .clone()
+            .into_iter()
+            .map(|x| {
+                Regex::new(&format!(r"(?i)\b({})\z", x)).unwrap()
+            })
+            .collect();
 
-        fn compile_regex<S: AsRef<str>>(&mut self, pattern: S) -> Regex {
-            let expression = pattern.as_ref().to_string();
-            match self.regex_cache.get(&expression) {
-                Some(re) => re.to_owned(),
-                _ => {
-                    let re = Regex::new(&expression)
-                        .expect("Invalid regular expression");
-                    self.regex_cache.insert(expression, re.to_owned());
-                    re
-                }
-            }
-        }
+        let add_irregular = |
+            plurals: &mut Vec<(String, String)>,
+            singulars: &mut Vec<(String, String)>,
+            singular: String,
+            plural: String
+        | {
+            let singular_first_char = &singular[..1];
+            let plural_first_char = &plural[..1];
 
-        pub(crate) fn irregular(&mut self, singular: String, plural: String) {
-            let singular_first_char: char = singular.chars().next()
-                .expect("Empty singular word supplied to irregular function");
-            let plural_first_char: char = plural.chars().next()
-                .expect("Empty plural word supplied to irregular function");
+            let plural_stem = &plural[1..];
+            let singular_stem = &singular[1..];
 
-            let plural_stem = plural.substring(1..);
-            let singular_stem = singular.substring(1..);
-
-            if singular_first_char.to_string().to_uppercase()
-                == plural_first_char.to_string().to_uppercase()
-            {
-                self.plurals.insert(
+            if singular_first_char.to_uppercase() == plural_first_char.to_uppercase() {
+                // let a: &'static str = (r"(?i)(?P<a>".to_owned() + singular_first_char); // + r")" + singular_stem.to_owned() + "$";
+                plurals.insert(
                     0,
                     (
                         format!(r"(?i)(?P<a>{}){}$", singular_first_char, singular_stem),
                         format!("{}{}", r"${a}".to_owned(), plural_stem),
                     ),
                 );
-                self.plurals.insert(
+                plurals.insert(
                     0,
                     (
                         format!(r"(?i)(?P<a>{}){}$", plural_first_char, plural_stem),
@@ -224,7 +176,7 @@ pub mod inflection {
                     ),
                 );
 
-                self.singulars.insert(
+                singulars.insert(
                     0,
                     (
                         format!(r"(?i)(?P<a>{}){}$", plural_first_char, plural_stem),
@@ -232,43 +184,25 @@ pub mod inflection {
                     ),
                 );
             } else {
-                let plural_copy_upper1 = format!(
-                    "{}{}",
-                    plural_first_char.to_uppercase(),
-                    plural_stem
-                );
+                let plural_copy_upper1 =
+                    format!("{}{}", plural_first_char.to_uppercase(), plural_stem);
 
-                let plural_copy_lower1 = format!(
-                    "{}{}",
-                    plural_first_char.to_lowercase(),
-                    plural_stem
-                );
+                let plural_copy_lower1 =
+                    format!("{}{}", plural_first_char.to_lowercase(), plural_stem);
 
-                let plural_copy_upper2 = format!(
-                    "{}{}",
-                    plural_first_char.to_uppercase(),
-                    plural_stem
-                );
+                let plural_copy_upper2 =
+                    format!("{}{}", plural_first_char.to_uppercase(), plural_stem);
 
-                let plural_copy_lower2 = format!(
-                    "{}{}",
-                    plural_first_char.to_lowercase(),
-                    plural_stem
-                );
+                let plural_copy_lower2 =
+                    format!("{}{}", plural_first_char.to_lowercase(), plural_stem);
 
-                let singular_copy_upper1 = format!(
-                    "{}{}",
-                    singular_first_char.to_uppercase(),
-                    singular_stem
-                );
+                let singular_copy_upper1 =
+                    format!("{}{}", singular_first_char.to_uppercase(), singular_stem);
 
-                let singular_copy_lower1 = format!(
-                    "{}{}",
-                    singular_first_char.to_lowercase(),
-                    singular_stem
-                );
+                let singular_copy_lower1 =
+                    format!("{}{}", singular_first_char.to_lowercase(), singular_stem);
 
-                self.plurals.insert(
+                plurals.insert(
                     0,
                     (
                         format!(
@@ -279,7 +213,7 @@ pub mod inflection {
                         plural_copy_upper1,
                     ),
                 );
-                self.plurals.insert(
+                plurals.insert(
                     0,
                     (
                         format!(
@@ -290,7 +224,7 @@ pub mod inflection {
                         plural_copy_lower1,
                     ),
                 );
-                self.plurals.insert(
+                plurals.insert(
                     0,
                     (
                         format!(
@@ -301,7 +235,7 @@ pub mod inflection {
                         plural_copy_upper2,
                     ),
                 );
-                self.plurals.insert(
+                plurals.insert(
                     0,
                     (
                         format!(
@@ -312,7 +246,7 @@ pub mod inflection {
                         plural_copy_lower2,
                     ),
                 );
-                self.singulars.insert(
+                singulars.insert(
                     0,
                     (
                         format!(
@@ -323,7 +257,7 @@ pub mod inflection {
                         singular_copy_upper1,
                     ),
                 );
-                self.singulars.insert(
+                singulars.insert(
                     0,
                     (
                         format!(
@@ -335,286 +269,381 @@ pub mod inflection {
                     ),
                 );
             }
-        }
+        };
 
-        create_ordinal_function!(ordinal_i8, |x: i8| x.abs(), i8);
-        create_ordinal_function!(ordinal_i16, |x: i16| x.abs(), i16);
-        create_ordinal_function!(ordinal_i32, |x: i32| x.abs(), i32);
-        create_ordinal_function!(ordinal_i64, |x: i64| x.abs(), i64);
-        create_ordinal_function!(ordinal_i128, |x: i128| x.abs(), i128);
-        create_ordinal_function!(ordinal_u8, |x: u8| x, u8);
-        create_ordinal_function!(ordinal_u16, |x: u16| x, u16);
-        create_ordinal_function!(ordinal_u32, |x: u32| x, u32);
-        create_ordinal_function!(ordinal_u64, |x: u64| x, u64);
-        create_ordinal_function!(ordinal_u128, |x: u128| x, u128);
-        create_ordinal_function!(ordinal_usize, |x: usize| x, usize);
+        add_irregular(&mut plurals, &mut singulars, "person".to_string(), "people".to_string());
+        add_irregular(&mut plurals, &mut singulars, "man".to_string(), "men".to_string());
+        add_irregular(&mut plurals, &mut singulars, "human".to_string(), "humans".to_string());
+        add_irregular(&mut plurals, &mut singulars, "child".to_string(), "children".to_string());
+        add_irregular(&mut plurals, &mut singulars, "sex".to_string(), "sexes".to_string());
+        add_irregular(&mut plurals, &mut singulars, "move".to_string(), "moves".to_string());
+        add_irregular(&mut plurals, &mut singulars, "cow".to_string(), "kine".to_string());
+        add_irregular(&mut plurals, &mut singulars, "zombie".to_string(), "zombies".to_string());
+        add_irregular(&mut plurals, &mut singulars, "slave".to_string(), "slaves".to_string());
+        add_irregular(&mut plurals, &mut singulars, "this".to_string(), "this".to_string());
+        add_irregular(&mut plurals, &mut singulars, "flour".to_string(), "flour".to_string());
+        add_irregular(&mut plurals, &mut singulars, "milk".to_string(), "milk".to_string());
+        add_irregular(&mut plurals, &mut singulars, "water".to_string(), "water".to_string());
+        add_irregular(&mut plurals, &mut singulars, "reserve".to_string(), "reserves".to_string());
+        add_irregular(&mut plurals, &mut singulars, "gas".to_string(), "gasses".to_string());
+        add_irregular(&mut plurals, &mut singulars, "bias".to_string(), "biases".to_string());
+        add_irregular(&mut plurals, &mut singulars, "atlas".to_string(), "atlases".to_string());
+        add_irregular(&mut plurals, &mut singulars, "goose".to_string(), "geese".to_string());
+        add_irregular(&mut plurals, &mut singulars, "pasta".to_string(), "pastas".to_string());
+        add_irregular(&mut plurals, &mut singulars, "slice".to_string(), "slices".to_string());
+        add_irregular(&mut plurals, &mut singulars, "cactus".to_string(), "cacti".to_string());
 
-        create_ordinalize_function!(ordinalize_i8, ordinal_i8, i8);
-        create_ordinalize_function!(ordinalize_i16, ordinal_i16, i16);
-        create_ordinalize_function!(ordinalize_i32, ordinal_i32, i32);
-        create_ordinalize_function!(ordinalize_i64, ordinal_i64, i64);
-        create_ordinalize_function!(ordinalize_i128, ordinal_i128, i128);
-        create_ordinalize_function!(ordinalize_u8, ordinal_u8, u8);
-        create_ordinalize_function!(ordinalize_u16, ordinal_u16, u16);
-        create_ordinalize_function!(ordinalize_u32, ordinal_u32, u32);
-        create_ordinalize_function!(ordinalize_u64, ordinal_u64, u64);
-        create_ordinalize_function!(ordinalize_u128, ordinal_u128, u128);
-        create_ordinalize_function!(ordinalize_usize, ordinal_usize, usize);
+        let plurals: Vec<(Regex, String)> = plurals
+            .into_iter()
+            .map(|(rule, repl)| {
+                (Regex::new(&rule).unwrap(), repl)
+            })
+            .collect();
+        
+        let singulars: Vec<(Regex, String)> = singulars
+            .into_iter()
+            .map(|(rule, repl)| {
+                (Regex::new(&rule).unwrap(), repl)
+            })
+            .collect();
 
-        pub fn camelize<S: AsRef<str>>(&mut self, string: S) -> String {
-            self.camelize_upper(string, true)
-        }
-
-        pub fn camelize_upper<S: AsRef<str>>(
-            &mut self,
-            string: S,
-            uppercase_first_letter: bool,
-        ) -> String {
-            let input_string = string.as_ref().to_owned();
-
-            if input_string.is_empty() {
-                return input_string;
-            }
-
-            if uppercase_first_letter {
-                let re = self.compile_regex(r"(?:^|_)(.)");
-                let mut result: String = input_string.to_owned();
-
-                for cap in re.find_iter(&input_string) {
-                    let replace_with = &cap
-                        .as_str()
-                        .chars()
-                        .last()
-                        .expect("empty string")
-                        .to_uppercase()
-                        .to_string();
-                    result.replace_range(cap.range(), replace_with);
-                }
-                return result;
-            }
-
-            let input_string = self.camelize_upper(input_string, true);
-            let mut result = string
-                .as_ref()
-                .to_string()
-                .chars()
-                .next()
-                .expect("empty string")
-                .to_lowercase()
-                .to_string();
-            result.push_str(input_string.substring(1..).as_str());
-            result
-        }
-
-        pub fn dasherize<S: AsRef<str>>(&mut self, word: S) -> String {
-            word.as_ref().to_string().replace('_', "-")
-        }
-
-        pub fn humanize<S: AsRef<str>>(&mut self, word: S) -> String {
-            let id_prog = self.compile_regex(r"_id$");
-            let stem_prog = self.compile_regex(r"(?i)([a-z\d]*)");
-            let word_prog = self.compile_regex(r"^\w");
-
-            let mut result: String = id_prog.replace_all(word.as_ref(), "").to_string();
-            result = result.replace('_', " ");
-
-            if result.is_empty() {
-                return result;
-            }
-
-            let updated_result = result.to_owned();
-            for cap in stem_prog.find_iter(&updated_result) {
-                let replace_with = cap.as_str().to_lowercase().to_string();
-                result.replace_range(cap.range(), &replace_with);
-            }
-
-            let updated_result = result.to_owned();
-            for cap in word_prog.find_iter(&updated_result) {
-                let mut replace_with = cap
-                    .as_str()
-                    .chars()
-                    .next()
-                    .expect("empty string")
-                    .to_uppercase()
-                    .to_string();
-                let last_part = cap.as_str().substring(1..);
-                replace_with.push_str(last_part.as_str());
-                result.replace_range(cap.range(), &replace_with);
-            }
-            result
-        }
-
-        pub fn underscore<S: AsRef<str>>(&mut self, string: S) -> String {
-            let prog1 = self.compile_regex(r"(?P<a>[A-Z]+)(?P<b>[A-Z][a-z])");
-            let prog2 = self.compile_regex(r"(?P<a>[a-z\d])(?P<b>[A-Z])");
-            let stand_in = "$a-$b";
-            let mut word = string.as_ref().to_string();
-            word = prog1.replace_all(&word, stand_in).to_string();
-            word = prog2.replace_all(&word, stand_in).to_string();
-            word = word.replace('-', "_");
-            word.to_lowercase()
-        }
-
-        pub fn transliterate<S: AsRef<str>>(&self, string: S) -> String {
-            deunicode::deunicode(string.as_ref())
-        }
-
-        pub fn parameterize_with_sep<S: AsRef<str>>(&mut self, string: S, sep: String) -> String {
-            let mut result = self.transliterate(string);
-
-            let is_sep_empty = sep.is_empty();
-            let sep_copy = sep.to_owned();
-
-            let clean_prog = self.compile_regex(r"(?i)[^a-z0-9\-_]+");
-            result = clean_prog.replace_all(&result, sep).to_string();
-
-            if !is_sep_empty {
-                let re_sep = regex::escape(&sep_copy);
-                let sep_prog = self.compile_regex(format!(r"{}{}", re_sep, re_sep));
-                let leading_sep_prog = self.compile_regex(format!(r"(?i)^{}|{}$", re_sep, re_sep));
-                result = sep_prog.replace_all(&result, sep_copy).to_string();
-                result = leading_sep_prog.replace_all(&result, "").to_string();
-            }
-
-            result.to_lowercase()
-        }
-
-        pub fn parameterize<S: AsRef<str>>(&mut self, string: S) -> String {
-            self.parameterize_with_sep::<S>(string, "-".to_string())
-        }
-
-        pub fn pluralize<S: AsRef<str>>(&mut self, string: S) -> String {
-            let word: String = string.as_ref().to_string();
-            let word_is_empty: bool = word.is_empty();
-            let word_is_in_uncountable: bool = self.uncountable.contains(&word.to_lowercase());
-
-            if word_is_empty || word_is_in_uncountable {
-                return word;
-            }
-
-            let regex_cache = &mut self.regex_cache;
-
-            for (rule, repl) in self.plurals.iter() {
-                let re: &Regex = match regex_cache.get(rule) {
-                    Some(re) => re,
-                    None => {
-                        regex_cache.insert(rule.to_string(), Regex::new(rule).expect("Invalid regex rule"));
-                        regex_cache.get(rule).expect("Failed to get regex from cache after insertion")
-                    }
-                };
-                if re.is_match(&word) {
-                    return re.replace_all(&word, repl).to_string();
-                }
-            }
-
-            word
-        }
-
-        pub fn singularize<S: AsRef<str>>(&mut self, string: S) -> String {
-            let word: String = string.as_ref().to_string();
-            let regex_cache = &mut self.regex_cache;
-
-            for inf in self.uncountable.iter() {
-                let pattern = format!(r"(?i)\b({})\z", inf);
-                let re: &Regex = match regex_cache.get(&pattern) {
-                    Some(re) => re,
-                    None => {
-                        let pattern_copy = pattern.to_owned();
-                        regex_cache.insert(pattern, Regex::new(&pattern_copy).expect("Invalid regex pattern"));
-                        regex_cache.get(&pattern_copy).expect("Failed to get regex from cache after insertion")
-                    }
-                };
-                if re.is_match(&word) {
-                    return word;
-                }
-            }
-
-            for (rule, repl) in self.singulars.iter() {
-                let re: &Regex = match regex_cache.get(rule) {
-                    Some(re) => re,
-                    _ => {
-                        regex_cache.insert(rule.to_string(), Regex::new(rule).expect("Invalid regex rule"));
-                        regex_cache.get(rule).expect("Failed to get regex from cache after insertion")
-                    }
-                };
-                if re.is_match(&word) {
-                    return re.replace_all(&word, repl).to_string();
-                }
-            }
-
-            word
-        }
-
-        pub fn tableize<S: AsRef<str>>(&mut self, string: S) -> String {
-            let underscore = self.underscore(string);
-            self.pluralize(underscore)
-        }
-
-        fn capitalize<S: AsRef<str>>(&self, s: S) -> String {
-            let mut c = s.as_ref().chars();
-            match c.next() {
-                None => String::new(),
-                Some(f) => f.to_uppercase().chain(c).collect(),
-            }
-        }
-
-        pub fn titleize<S: AsRef<str>>(&mut self, string: S) -> String {
-            let input_string = string.as_ref().to_owned();
-            let mut result: String = self.underscore(string);
-            result = self.humanize(result);
-            let first_prog = self.compile_regex(r"\b((\s+)?'?\w)");
-            for cap in first_prog.find_iter(&input_string) {
-                result.replace_range(cap.range(), cap.as_str());
-            }
-            result = result
-                .split(char::is_whitespace)
-                .map(|word| format!(" {}", self.capitalize(word)))
-                .collect::<String>()
-                .trim()
-                .to_string();
-            result
-        }
-
-        pub fn normalize_spaces<S: AsRef<str>>(&mut self, string: S) -> String {
-            let re = self.compile_regex(r"\s+");
-            let text = string.as_ref();
-            return re.replace_all(text, " ").trim().to_string();
-        }
-    }
+        (uncountable, plurals, singulars, uncountable_progs)
+    };
 }
 
-impl Default for Inflection {
-    fn default() -> Self {
-        let mut result = Self::init();
-        result.irregular("person".to_string(), "people".to_string());
-        result.irregular("man".to_string(), "men".to_string());
-        result.irregular("human".to_string(), "humans".to_string());
-        result.irregular("child".to_string(), "children".to_string());
-        result.irregular("sex".to_string(), "sexes".to_string());
-        result.irregular("move".to_string(), "moves".to_string());
-        result.irregular("cow".to_string(), "kine".to_string());
-        result.irregular("zombie".to_string(), "zombies".to_string());
-        result.irregular("slave".to_string(), "slaves".to_string());
-        result.irregular("this".to_string(), "this".to_string());
-        result.irregular("flour".to_string(), "flour".to_string());
-        result.irregular("milk".to_string(), "milk".to_string());
-        result.irregular("water".to_string(), "water".to_string());
-        result.irregular("reserve".to_string(), "reserves".to_string());
-        result.irregular("gas".to_string(), "gasses".to_string());
-        result.irregular("bias".to_string(), "biases".to_string());
-        result.irregular("atlas".to_string(), "atlases".to_string());
-        result.irregular("goose".to_string(), "geese".to_string());
-        result.irregular("pasta".to_string(), "pastas".to_string());
-        result.irregular("slice".to_string(), "slices".to_string());
-        result.irregular("cactus".to_string(), "cacti".to_string());
+#[doc = include_str ! ("./../README.md")]
+pub mod inflection {
+    use hashbrown::HashSet;
+    use regex::Regex;
+    use lazy_static::lazy_static;
+    use string_utility::prelude::*;
 
+    use crate::UPS;
+
+    #[inline]
+    fn get_uncountable() -> &'static HashSet<String> {
+        &UPS.0
+    }
+
+    #[inline]
+    fn get_uncountable_compiled() -> &'static Vec<Regex> {
+        &UPS.3
+    }
+
+    #[inline]
+    fn get_plurals() -> &'static Vec<(Regex, String)> {
+        &UPS.1
+    }
+
+    #[inline]
+    fn get_singulars() -> &'static Vec<(Regex, String)> {
+        &UPS.2
+    }
+
+    macro_rules! create_ordinal_function {
+        ($func_name:ident, $abs:expr, $param_type:ty) => {
+            pub fn $func_name(number: $param_type) -> String {
+                let n = $abs(number);
+                match n % 100 {
+                    11 | 12 | 13 => "th".to_string(),
+                    _ => match n % 10 {
+                        1 => "st".to_string(),
+                        2 => "nd".to_string(),
+                        3 => "rd".to_string(),
+                        _ => "th".to_string(),
+                    },
+                }
+            }
+        };
+    }
+
+    macro_rules! create_ordinalize_function {
+        ($func_name:ident, $ordinal_function:ident, $param_type:ty) => {
+            pub fn $func_name(number: $param_type) -> String {
+                format!("{}{}", number, $ordinal_function(number))
+            }
+        };
+    }
+
+    create_ordinal_function!(ordinal_i8, |x: i8| x.abs(), i8);
+    create_ordinal_function!(ordinal_i16, |x: i16| x.abs(), i16);
+    create_ordinal_function!(ordinal_i32, |x: i32| x.abs(), i32);
+    create_ordinal_function!(ordinal_i64, |x: i64| x.abs(), i64);
+    create_ordinal_function!(ordinal_i128, |x: i128| x.abs(), i128);
+    create_ordinal_function!(ordinal_u8, |x: u8| x, u8);
+    create_ordinal_function!(ordinal_u16, |x: u16| x, u16);
+    create_ordinal_function!(ordinal_u32, |x: u32| x, u32);
+    create_ordinal_function!(ordinal_u64, |x: u64| x, u64);
+    create_ordinal_function!(ordinal_u128, |x: u128| x, u128);
+    create_ordinal_function!(ordinal_usize, |x: usize| x, usize);
+
+    create_ordinalize_function!(ordinalize_i8, ordinal_i8, i8);
+    create_ordinalize_function!(ordinalize_i16, ordinal_i16, i16);
+    create_ordinalize_function!(ordinalize_i32, ordinal_i32, i32);
+    create_ordinalize_function!(ordinalize_i64, ordinal_i64, i64);
+    create_ordinalize_function!(ordinalize_i128, ordinal_i128, i128);
+    create_ordinalize_function!(ordinalize_u8, ordinal_u8, u8);
+    create_ordinalize_function!(ordinalize_u16, ordinal_u16, u16);
+    create_ordinalize_function!(ordinalize_u32, ordinal_u32, u32);
+    create_ordinalize_function!(ordinalize_u64, ordinal_u64, u64);
+    create_ordinalize_function!(ordinalize_u128, ordinal_u128, u128);
+    create_ordinalize_function!(ordinalize_usize, ordinal_usize, usize);
+
+    pub fn camelize<S: AsRef<str>>(string: S) -> String {
+        camelize_upper(string, true)
+    }
+
+    pub fn camelize_upper<S: AsRef<str>>(string: S, uppercase_first_letter: bool) -> String {
+        let input_string = string.as_ref().to_owned();
+
+        if input_string.is_empty() {
+            return input_string;
+        }
+
+        if uppercase_first_letter {
+            lazy_static! {
+                static ref CU_RE: Regex = Regex::new(r"(?:^|_)(.)").unwrap();
+            }
+            let mut result: String = input_string.to_owned();
+
+            for cap in CU_RE.find_iter(&input_string) {
+                let replace_with = &cap
+                    .as_str()
+                    .chars()
+                    .last()
+                    .unwrap_or(' ')
+                    .to_uppercase()
+                    .to_string();
+                result.replace_range(cap.range(), replace_with);
+            }
+            return result;
+        }
+
+        let input_string = camelize_upper(input_string, true);
+        let mut result = string
+            .as_ref()
+            .to_string()
+            .chars()
+            .next()
+            .unwrap_or(' ')
+            .to_lowercase()
+            .to_string();
+        result.push_str(input_string.substring(1..).as_str());
         result
+    }
+
+    pub fn dasherize<S: AsRef<str>>(word: S) -> String {
+        word.as_ref().to_string().replace('_', "-")
+    }
+
+    pub fn humanize<S: AsRef<str>>(word: S) -> String {
+        lazy_static! {
+            static ref H_ID_PROG: Regex = Regex::new(r"_id$").unwrap();
+            static ref H_STEM_PROG: Regex = Regex::new(r"(?i)([a-z\d]*)").unwrap();
+            static ref H_WORD_PROG: Regex = Regex::new(r"^\w").unwrap();
+        }
+
+        let mut result: String = H_ID_PROG.replace_all(word.as_ref(), "").to_string();
+        result = result.replace('_', " ");
+
+        if result.is_empty() {
+            return result;
+        }
+
+        let updated_result = result.to_owned();
+        for cap in H_STEM_PROG.find_iter(&updated_result) {
+            let replace_with = cap.as_str().to_lowercase().to_string();
+            result.replace_range(cap.range(), &replace_with);
+        }
+
+        let updated_result = result.to_owned();
+        for cap in H_WORD_PROG.find_iter(&updated_result) {
+            let mut replace_with = cap
+                .as_str()
+                .chars()
+                .next()
+                .unwrap_or(' ')
+                .to_uppercase()
+                .to_string();
+            let last_part = cap.as_str().substring(1..);
+            replace_with.push_str(last_part.as_str());
+            result.replace_range(cap.range(), &replace_with);
+        }
+        result
+    }
+
+    pub fn underscore<S: AsRef<str>>(string: S) -> String {
+        lazy_static! {
+            static ref U_PROG1: Regex = Regex::new(r"(?P<a>[A-Z]+)(?P<b>[A-Z][a-z])").unwrap();
+            static ref U_PROG2: Regex = Regex::new(r"(?P<a>[a-z\d])(?P<b>[A-Z])").unwrap();
+        }
+        let stand_in = "$a-$b";
+        let mut word = string.as_ref().to_string();
+        word = U_PROG1.replace_all(&word, stand_in).to_string();
+        word = U_PROG2.replace_all(&word, stand_in).to_string();
+        word = word.replace('-', "_");
+        word.to_lowercase()
+    }
+
+    pub fn transliterate<S: AsRef<str>>(string: S) -> String {
+        deunicode::deunicode(string.as_ref())
+    }
+
+    pub fn parameterize_with_sep<S: AsRef<str>>(string: S, sep: String) -> String {
+        let transliterated0 = transliterate(string);
+        let transliterated = transliterated0.as_str();
+
+        let is_sep_empty = sep.is_empty();
+        let sep_copy = sep.to_owned();
+
+        lazy_static! {
+            static ref PWS_CLEAN_PROG: Regex = Regex::new(r"(?i)[^a-z0-9\-_]+").unwrap();
+        }
+        let cleaned0 = PWS_CLEAN_PROG.replace_all(transliterated, sep);
+        let cleaned = cleaned0.as_ref();
+        if !is_sep_empty {
+            let re_sep = regex::escape(&sep_copy);
+            let sep_prog = Regex::new(&format!(r"{}{}", re_sep, re_sep)).unwrap();
+            let leading_sep_prog = Regex::new(&format!(r"(?i)^{}|{}$", re_sep, re_sep)).unwrap();
+
+            let rm_sep = sep_prog.replace_all(cleaned, sep_copy);
+            let rm_sep = leading_sep_prog.replace_all(&rm_sep, "");
+
+            return rm_sep.as_ref().to_lowercase();
+        }
+
+        cleaned.to_lowercase()
+    }
+
+    pub fn parameterize<S: AsRef<str>>(string: S) -> String {
+        parameterize_with_sep::<S>(string, "-".to_string())
+    }
+
+    pub fn pluralize<S: AsRef<str>>(string: S) -> String {
+        let word: &str = string.as_ref();
+        let word_is_empty = word.is_empty();
+        let word_is_in_uncountable: bool =
+            get_uncountable().contains(word.to_lowercase().as_str());
+
+        if word_is_empty || word_is_in_uncountable {
+            return word.to_string();
+        }
+
+        for (rule, repl) in get_plurals().iter() {
+            // let re = Regex::new(rule).unwrap();
+            if rule.is_match(word) {
+                return rule.replace_all(word, repl).to_string();
+            }
+        }
+
+        word.to_string()
+    }
+
+    pub fn singularize<S: AsRef<str>>(string: S) -> String {
+        let word = string.as_ref();
+
+        for re in get_uncountable_compiled().iter() {
+            // let pattern = &format!(r"(?i)\b({})\z", inf);
+            // let re = Regex::new(pattern).unwrap();
+            if re.is_match(word) {
+                return word.to_string();
+            }
+        }
+
+        for (rule, repl) in get_singulars().iter() {
+            // let re = Regex::new(rule).unwrap();
+            if rule.is_match(word) {
+                return rule.replace_all(word, repl).to_string();
+            }
+        }
+
+        word.to_string()
+    }
+
+    pub fn tableize<S: AsRef<str>>(string: S) -> String {
+        let underscore = underscore(string);
+        pluralize(underscore)
+    }
+
+    fn capitalize<S: AsRef<str>>(s: S) -> String {
+        let mut c = s.as_ref().chars();
+        match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().chain(c).collect(),
+        }
+    }
+
+    pub fn titleize<S: AsRef<str>>(string: S) -> String {
+        let input_string = string.as_ref();
+        let mut result: String = underscore(&string);
+        result = humanize(result);
+        lazy_static! {
+            static ref H_FIRST_PROG: Regex = Regex::new(r"\b((\s+)?'?\w)").unwrap();
+        }
+        for cap in H_FIRST_PROG.find_iter(input_string) {
+            result.replace_range(cap.range(), cap.as_str());
+        }
+        result = result
+            .split(char::is_whitespace)
+            .map(|word| format!(" {}", capitalize(word)))
+            .collect::<String>()
+            .trim()
+            .to_string();
+        result
+    }
+
+    pub fn normalize_spaces<S: AsRef<str>>(string: S) -> String {
+        lazy_static! {
+            static ref NS_RE: Regex = Regex::new(r"\s+").unwrap();
+        }
+        let text = string.as_ref();
+        return NS_RE.replace_all(text, " ").trim().to_string();
+    }
+
+    fn _only_alpha<S: AsRef<str>>(
+        string: S,
+        check_fn: fn(c: &char) -> bool,
+        repl: Option<char>,
+    ) -> String {
+        let chars = string.as_ref().chars();
+
+        chars
+            .filter_map(|c| if !check_fn(&c) { repl } else { Some(c) })
+            .collect()
+    }
+
+    pub fn only_alpha<S: AsRef<str>>(string: S, repl: Option<char>) -> String {
+        let check_fn = |c: &char| c.is_alphabetic();
+        _only_alpha(string.as_ref(), check_fn, repl)
+    }
+
+    pub fn only_alphanum<S: AsRef<str>>(string: S, repl: Option<char>) -> String {
+        let check_fn = |c: &char| c.is_alphanumeric();
+        _only_alpha(string.as_ref(), check_fn, repl)
+    }
+
+    pub fn only_alpha_ascii<S: AsRef<str>>(string: S, repl: Option<char>) -> String {
+        let check_fn = |c: &char| c.is_ascii_alphabetic();
+        _only_alpha(string.as_ref(), check_fn, repl)
+    }
+
+    pub fn only_alphanum_ascii<S: AsRef<str>>(string: S, repl: Option<char>) -> String {
+        let check_fn = |c: &char| c.is_ascii_alphanumeric();
+        _only_alpha(string.as_ref(), check_fn, repl)
+    }
+
+    pub fn keyify<S: AsRef<str>>(string: S) -> String {
+        let result = only_alphanum_ascii(string, Some(' '));
+        let result = normalize_spaces(result);
+        let result = titleize(result);
+        let result = parameterize_with_sep(result, "_".to_string());
+        underscore(result.trim())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::inflection::Inflection;
+    use crate::inflection;
     use string_utility::prelude::*;
 
     const SINGULAR_TO_PLURAL: [(&str, &str); 90] = [
@@ -773,6 +802,33 @@ mod tests {
         ),
     ];
 
+    const KEYIFY_BULK: [(&str, &str); 18] = [
+        (r"Donald E. Knuth", "donald_e_knuth"),
+        (
+            r"Random text with *(bad)* characters",
+            "random_text_with_bad_characters",
+        ),
+        (r"With-some-dashes", "with_some_dashes"),
+        (r"Retain_underscore", "retain_underscore"),
+        (r"Trailing bad characters!@#", "trailing_bad_characters"),
+        (r"!@#Leading bad characters", "leading_bad_characters"),
+        (r"Squeeze   separators", "squeeze_separators"),
+        (r"Test with + sign", "test_with_sign"),
+        (
+            r"Test with malformed utf8 \251",
+            "test_with_malformed_utf8_251",
+        ),
+        ("  --== some strange_key", "some_strange_key"),
+        ("  --== some otherKey_", "some_other_key"),
+        ("  --== some other-key_", "some_other_key"),
+        ("Some Other Key", "some_other_key"),
+        ("Some-Other-Key", "some_other_key"),
+        ("some_other_key", "some_other_key"),
+        ("      ", ""),
+        (" -----", ""),
+        ("========", ""),
+    ];
+
     const STRING_TO_PARAMETERIZED_AND_NORMALIZED: [(&str, &str); 6] = [
         (r"Malmö", "malmo"),
         (r"Garçons", "garcons"),
@@ -817,7 +873,7 @@ mod tests {
     ];
 
     #[test]
-    fn substring_macro() {
+    fn substring() {
         assert_eq!("1Hello".substring(1..), "Hello");
         assert_eq!("1Help-o".substring(1..5), "Help");
         assert_eq!("".substring(2..42), "");
@@ -826,93 +882,91 @@ mod tests {
 
     #[test]
     fn camelize_bulk() {
-        let mut inflection = Inflection::default();
         for (expected, input) in CAMEL_TO_UNDERSCORE {
-            assert_eq!(inflection.camelize(input), expected);
+            assert_eq!(inflection::camelize(input), expected);
         }
     }
 
     #[test]
     fn pluralize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in SINGULAR_TO_PLURAL {
-            assert_eq!(inflection.pluralize(input), expected);
+            assert_eq!(inflection::pluralize(input), expected);
         }
     }
 
     #[test]
     fn singularize_bulk() {
-        let mut inflection = Inflection::default();
         for (expected, input) in SINGULAR_TO_PLURAL {
-            assert_eq!(inflection.singularize(input), expected);
+            assert_eq!(inflection::singularize(input), expected);
         }
     }
 
     #[test]
     fn underscore_bulk() {
-        let mut inflection = Inflection::default();
         for (expected, input) in UNDERSCORES_TO_DASHES {
-            assert_eq!(inflection.underscore(input), expected);
+            assert_eq!(inflection::underscore(input), expected);
         }
 
         for (input, expected) in CAMEL_TO_UNDERSCORE_WITHOUT_REVERSE {
-            assert_eq!(inflection.underscore(input), expected);
+            assert_eq!(inflection::underscore(input), expected);
         }
     }
 
     #[test]
     fn dasherize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in UNDERSCORES_TO_DASHES {
-            assert_eq!(inflection.dasherize(input), expected);
+            assert_eq!(inflection::dasherize(input), expected);
         }
     }
 
     #[test]
     fn tableize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in STRING_TO_TABLEIZE {
-            assert_eq!(inflection.tableize(input), expected);
+            assert_eq!(inflection::tableize(input), expected);
         }
     }
 
     #[test]
     fn humanize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in UNDERSCORE_TO_HUMAN {
-            assert_eq!(inflection.humanize(input), expected);
+            assert_eq!(inflection::humanize(input), expected);
         }
     }
 
     #[test]
     fn titleize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in MIXTURE_TO_TITLEIZED {
-            assert_eq!(inflection.titleize(input), expected);
+            assert_eq!(inflection::titleize(input), expected);
+        }
+    }
+
+    #[test]
+    fn keyify_test() {
+        for (input, expected) in KEYIFY_BULK {
+            assert_eq!(inflection::keyify(input), expected);
         }
     }
 
     #[test]
     fn parameterize_bulk() {
-        let mut inflection = Inflection::default();
         for (input, expected) in STRING_TO_PARAMETERIZED {
-            assert_eq!(inflection.parameterize(input), expected);
+            assert_eq!(inflection::parameterize(input), expected);
         }
 
         for (input, expected) in STRING_TO_PARAMETERIZED_AND_NORMALIZED {
-            assert_eq!(inflection.parameterize(input), expected);
+            assert_eq!(inflection::parameterize(input), expected);
         }
 
         for (input, expected) in STRING_TO_PARAMETERIZE_WITH_UNDERSCORE {
             assert_eq!(
-                inflection.parameterize_with_sep(input, "_".to_string()),
+                inflection::parameterize_with_sep(input, "_".to_string()),
                 expected
             );
         }
 
         for (input, expected) in STRING_TO_PARAMETERIZE_WITH_NO_SEPARATOR {
             assert_eq!(
-                inflection.parameterize_with_sep(input, "".to_string()),
+                inflection::parameterize_with_sep(input, "".to_string()),
                 expected
             );
         }
@@ -922,33 +976,29 @@ mod tests {
         ($ordinal:ident, $ordinalize:ident, $ordinalize_bulk:ident, $param_type:ty) => {
             #[test]
             fn $ordinal() {
-                let inflection = Inflection::default();
-                assert_eq!(inflection.$ordinal(1), "st");
-                assert_eq!(inflection.$ordinal(2), "nd");
-                assert_eq!(inflection.$ordinal(3), "rd");
-                assert_eq!(inflection.$ordinal(4), "th");
-                assert_eq!(inflection.$ordinal(10), "th");
+                assert_eq!(inflection::$ordinal(1), "st");
+                assert_eq!(inflection::$ordinal(2), "nd");
+                assert_eq!(inflection::$ordinal(3), "rd");
+                assert_eq!(inflection::$ordinal(4), "th");
+                assert_eq!(inflection::$ordinal(10), "th");
 
-                assert_eq!(inflection.$ordinal(1002), "nd");
-                assert_eq!(inflection.$ordinal(1003), "rd");
+                assert_eq!(inflection::$ordinal(1002), "nd");
+                assert_eq!(inflection::$ordinal(1003), "rd");
             }
 
             #[test]
             fn $ordinalize() {
-                let inflection = Inflection::default();
-                assert_eq!(inflection.$ordinalize(1), "1st");
-                assert_eq!(inflection.$ordinalize(2), "2nd");
-                assert_eq!(inflection.$ordinalize(3), "3rd");
-                assert_eq!(inflection.$ordinalize(4), "4th");
-                assert_eq!(inflection.$ordinalize(10), "10th");
-                assert_eq!(inflection.$ordinalize(1002), "1002nd");
-                assert_eq!(inflection.$ordinalize(1003), "1003rd");
+                assert_eq!(inflection::$ordinalize(1), "1st");
+                assert_eq!(inflection::$ordinalize(2), "2nd");
+                assert_eq!(inflection::$ordinalize(3), "3rd");
+                assert_eq!(inflection::$ordinalize(4), "4th");
+                assert_eq!(inflection::$ordinalize(10), "10th");
+                assert_eq!(inflection::$ordinalize(1002), "1002nd");
+                assert_eq!(inflection::$ordinalize(1003), "1003rd");
             }
 
             #[test]
             fn $ordinalize_bulk() {
-                let inflection = Inflection::default();
-
                 let ordinal_numbers: [($param_type, &str); 31] = [
                     (0, "0th"),
                     (1, "1st"),
@@ -984,7 +1034,7 @@ mod tests {
                 ];
 
                 for (input, expected) in ordinal_numbers {
-                    assert_eq!(inflection.$ordinalize(input), expected);
+                    assert_eq!(inflection::$ordinalize(input), expected);
                 }
             }
         };
