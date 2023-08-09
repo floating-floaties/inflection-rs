@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)]
 
-use hashbrown::HashSet;
+use std::collections::HashSet;
 use regex::Regex;
 use lazy_static::lazy_static;
 
@@ -313,10 +313,9 @@ lazy_static! {
 
 #[doc = include_str ! ("./../README.md")]
 pub mod inflection {
-    use hashbrown::HashSet;
+    use std::collections::HashSet;
     use regex::Regex;
     use lazy_static::lazy_static;
-    use string_utility::prelude::*;
 
     use crate::UPS;
 
@@ -428,7 +427,7 @@ pub mod inflection {
             .unwrap_or(' ')
             .to_lowercase()
             .to_string();
-        result.push_str(input_string.substring(1..).as_str());
+        result.push_str(&input_string[1..]);
         result
     }
 
@@ -465,8 +464,8 @@ pub mod inflection {
                 .unwrap_or(' ')
                 .to_uppercase()
                 .to_string();
-            let last_part = cap.as_str().substring(1..);
-            replace_with.push_str(last_part.as_str());
+            let last_part = &cap.as_str()[1..];
+            replace_with.push_str(last_part);
             result.replace_range(cap.range(), &replace_with);
         }
         result
@@ -644,7 +643,6 @@ pub mod inflection {
 #[cfg(test)]
 mod tests {
     use crate::inflection;
-    use string_utility::prelude::*;
 
     const SINGULAR_TO_PLURAL: [(&str, &str); 90] = [
         ("search", "searches"),
@@ -874,10 +872,7 @@ mod tests {
 
     #[test]
     fn substring() {
-        assert_eq!("1Hello".substring(1..), "Hello");
-        assert_eq!("1Help-o".substring(1..5), "Help");
-        assert_eq!("".substring(2..42), "");
-        assert_eq!("<secret>42</secret>".substring(8..10), "42");
+        assert_eq!(&"1Hello"[1..], "Hello");
     }
 
     #[test]
