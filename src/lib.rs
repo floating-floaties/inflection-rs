@@ -18,6 +18,7 @@ type Upsc = (HashSet<String>, Vec<(Regex, String)>, Vec<(Regex, String)>, Vec<Re
 lazy_static! {
     static ref UPS: Upsc = {
         let mut plurals: Vec<(String, String)> = vec![
+                (r"(?i)(?P<a>\w+)s?-in-law$".to_string(), "${a}s-in-law".to_string()),
                 (r"(?i)(?P<a>quiz)$".to_string(), "${a}zes".to_string()),
                 (r"(?i)^(?P<a>oxen)$".to_string(), "${a}".to_string()),
                 (r"(?i)^(?P<a>ox)$".to_string(), "${a}en".to_string()),
@@ -40,7 +41,7 @@ lazy_static! {
                 (r"(?i)(?P<a>[ti])a$".to_string(), "${a}a".to_string()),
                 (r"(?i)(?P<a>[ti])um$".to_string(), "${a}a".to_string()),
                 (
-                    r"(?i)(?P<a>buffal|potat|tomat)o$".to_string(),
+                    r"(?i)(?P<a>buffal|potat|tomat|her)o$".to_string(),
                     "${a}oes".to_string(),
                 ),
                 (r"(?i)(?P<a>bu)s$".to_string(), "${a}ses".to_string()),
@@ -48,14 +49,15 @@ lazy_static! {
                     r"(?i)(?P<a>alias|status)$".to_string(),
                     "${a}es".to_string(),
                 ),
-                (r"(?i)(?P<a>octop|vir)i$".to_string(), "${a}i".to_string()),
-                (r"(?i)(?P<a>octop|vir)us$".to_string(), "${a}i".to_string()),
+                (r"(?i)(?P<a>octop|vir|radi)i$".to_string(), "${a}i".to_string()),
+                (r"(?i)(?P<a>octop|vir|radi)us$".to_string(), "${a}i".to_string()),
                 (r"(?i)^(?P<a>ax|test)is$".to_string(), "${a}es".to_string()),
                 (r"(?i)s$".to_string(), "s".to_string()),
                 (r"$".to_string(), "s".to_string()),
             ];
 
             let mut singulars: Vec<(String, String)> = vec![
+                (r"(?i)(?P<a>\w+)s-in-law$".to_string(), "${a}-in-law".to_string()),
                 (r"(?i)(?P<a>database)s$".to_string(), "${a}".to_string()),
                 (r"(?i)(?P<a>quiz)zes$".to_string(), "${a}".to_string()),
                 (r"(?i)(?P<a>matr)ices$".to_string(), "${a}ix".to_string()),
@@ -70,7 +72,7 @@ lazy_static! {
                     "${a}".to_string(),
                 ),
                 (
-                    r"(?i)(?P<a>octop|vir)(us|i)$".to_string(),
+                    r"(?i)(?P<a>octop|vir|radi)(us|i)$".to_string(),
                     "${a}us".to_string(),
                 ),
                 (r"(?i)^(?P<a>a)x[ie]s$".to_string(), "${a}xis".to_string()),
@@ -292,6 +294,7 @@ lazy_static! {
         add_irregular(&mut plurals, &mut singulars, "pasta".to_string(), "pastas".to_string());
         add_irregular(&mut plurals, &mut singulars, "slice".to_string(), "slices".to_string());
         add_irregular(&mut plurals, &mut singulars, "cactus".to_string(), "cacti".to_string());
+        add_irregular(&mut plurals, &mut singulars, "buzz".to_string(), "buzzes".to_string());
 
         let plurals: Vec<(Regex, String)> = plurals
             .into_iter()
