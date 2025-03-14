@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 
 macro_rules! case_insensitive {
     ($str:expr) => {{
-        &$str
+        $str
             .chars()
             .map(|c| format!("[{}{}]", c.to_string(), c.to_uppercase().to_string()))
             .collect::<String>()

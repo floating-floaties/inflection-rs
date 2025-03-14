@@ -6,12 +6,6 @@ This crate is a port of a port:
 > 
 > Source: https://github.com/jpvanhal/inflection
 
-## Crate
-
-```toml
-inflection-rs = "0.2.1"
-```
-
 ## Documentation
 
 ### Singularize
