@@ -1,6 +1,6 @@
 [package]
 name = "inflection-rs"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 description = "Inflection is a string transformation library. It singularizes and pluralizes English words, and transforms strings from CamelCase to underscored string."
 readme = "README.md"
@@ -16,7 +16,7 @@ bench = false
 [dependencies]
 lazy_static = "1.5.0"
 regex = "1.11.1"
-deunicode = "1.6.0"
+deunicode = "1.6.2"
 
 [dev-dependencies]
 criterion = "0.5"
