@@ -295,6 +295,8 @@ lazy_static! {
         add_irregular(&mut plurals, &mut singulars, "slice".to_string(), "slices".to_string());
         add_irregular(&mut plurals, &mut singulars, "cactus".to_string(), "cacti".to_string());
         add_irregular(&mut plurals, &mut singulars, "buzz".to_string(), "buzzes".to_string());
+        add_irregular(&mut plurals, &mut singulars, "spectrum".to_string(), "spectra".to_string());
+        add_irregular(&mut plurals, &mut singulars, "taxon".to_string(), "taxa".to_string());
 
         let plurals: Vec<(Regex, String)> = plurals
             .into_iter()
