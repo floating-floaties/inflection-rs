@@ -45,6 +45,9 @@ fn main() {
     assert_eq!(inflection::singularize("bookshelves"), "bookshelf");
     assert_eq!(inflection::singularize("merry-go-rounds"), "merry-go-round");
     assert_eq!(inflection::singularize("post offices"), "post office");
+    assert_eq!(inflection::singularize("spectra"), "spectrum");
+    assert_eq!(inflection::singularize("matrices"), "matrix");
+    assert_eq!(inflection::singularize("taxa"), "taxon");
 }
 ```
 
@@ -88,6 +91,9 @@ fn main() {
     assert_eq!(inflection::pluralize("bookshelf"), "bookshelves");
     assert_eq!(inflection::pluralize("merry-go-round"), "merry-go-rounds");
     assert_eq!(inflection::pluralize("post office"), "post offices");
+    assert_eq!(inflection::pluralize("spectrum"), "spectra");
+    assert_eq!(inflection::pluralize("matrix"), "matrices");
+    assert_eq!(inflection::pluralize("taxon"), "taxa");
 }
 ```
 
